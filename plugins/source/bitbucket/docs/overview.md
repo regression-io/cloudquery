@@ -1,14 +1,3 @@
----
-name: Bitbucket
-stage: Preview
-title: Bitbucket Source Plugin
-description: CloudQuery Bitbucket source plugin documentation
----
-
-# Bitbucket Source Plugin
-
-:badge
-
 The CloudQuery Bitbucket plugin pulls data from [Bitbucket](https://bitbucket.org/) and loads it into any supported CloudQuery destination (e.g. PostgreSQL, BigQuery, Snowflake, and [more](https://hub.cloudquery.io/plugins/destination)).
 
 The plugin discover all workspaces and repositories in your account and syncs them to the destination.
@@ -29,8 +18,8 @@ This example syncs from Bitbucket to a Postgres destination. The (top level) sou
 kind: source
 spec:
   name: bitbucket
-  registry: docker
-  path: ghcr.io/cloudquery/cq-source-bitbucket:VERSION_SOURCE_BITBUCKET
+  path: cloudquery/bitbucket
+  version: "VERSION_SOURCE_BITBUCKET"
   tables: ["*"]
   destinations: ["DESTINATION_NAME"]
   # bitbucket-specific configuration

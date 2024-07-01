@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
@@ -17,6 +17,7 @@ func (c *Client) Write(ctx context.Context, res <-chan message.WriteMessage) err
 	var tables schema.Tables
 
 	messages := make([]*sarama.ProducerMessage, 0, c.spec.BatchSize)
+	rows := int64(0)
 	for r := range res {
 		switch m := r.(type) {
 		case *message.WriteMigrateTable:
@@ -44,12 +45,13 @@ func (c *Client) Write(ctx context.Context, res <-chan message.WriteMessage) err
 				Key:   nil,
 				Value: sarama.ByteEncoder(b.Bytes()),
 			})
-			if len(messages) >= c.spec.BatchSize {
+			rows += m.Record.NumRows()
+			if rows >= c.spec.BatchSize {
 				if err := c.producer.SendMessages(messages); err != nil {
 					return err
 				}
 				// TODO(v4): Increment metrics
-				messages = messages[:0]
+				messages, rows = messages[:0], 0
 			}
 
 		default:
@@ -76,8 +78,8 @@ func (c *Client) createTopics(_ context.Context, tables schema.Tables) error {
 	defer admin.Close()
 	for _, table := range tables {
 		err := admin.CreateTopic(table.Name, &sarama.TopicDetail{
-			NumPartitions:     1,
-			ReplicationFactor: 1,
+			NumPartitions:     int32(c.spec.TopicDetails.NumPartitions),
+			ReplicationFactor: int16(c.spec.TopicDetails.ReplicationFactor),
 		}, false)
 		if err != nil {
 			if strings.Contains(err.Error(), "Topic with this name already exists") {

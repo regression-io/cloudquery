@@ -12,16 +12,21 @@ const (
 
 type Spec struct {
 	// MongoDB URI as described in the official MongoDB [documentation](https://www.mongodb.com/docs/manual/reference/connection-string/).
+	//
+	// Example connection strings:
+	// - `"mongodb://username:password@hostname:port/database"` basic connection
+	// - `"mongodb+srv://username:password@cluster.example.com/database"` connecting to a MongoDB Atlas cluster
+	// - `"mongodb://localhost:27017/myDatabase?authSource=admin"` specify authentication source
 	ConnectionString string `json:"connection_string" jsonschema:"required,minLength=1"`
 
 	// Database to sync the data to.
 	Database string `json:"database" jsonschema:"required,minLength=1"`
 
 	// Maximum number of items that may be grouped together to be written in a single write.
-	BatchSize int `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
+	BatchSize int64 `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
 
 	// Maximum size of items that may be grouped together to be written in a single write.
-	BatchSizeBytes int `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
+	BatchSizeBytes int64 `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
 }
 
 //go:embed schema.json

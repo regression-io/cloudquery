@@ -1,9 +1,9 @@
 module cloudquery/tablesdiff
 
-go 1.21.4
+go 1.21.11
 
 require (
-	github.com/bluekeyes/go-gitdiff v0.7.2
+	github.com/bluekeyes/go-gitdiff v0.7.3
 	github.com/google/go-cmp v0.5.9
 	github.com/stretchr/testify v1.8.4
 )

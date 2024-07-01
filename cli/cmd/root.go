@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	analytics "github.com/cloudquery/cloudquery/cli/internal/analytics"
 	"github.com/cloudquery/cloudquery/cli/internal/enum"
 	"github.com/cloudquery/cloudquery/cli/internal/env"
 	"github.com/rs/zerolog/log"
@@ -22,22 +23,22 @@ var (
 	rootShort = "CloudQuery CLI"
 	rootLong  = `CloudQuery CLI
 
-Open source data integration at scale.
+High performance data integration at scale.
 
 Find more information at:
 	https://www.cloudquery.io`
 
-	disableSentry   = false
-	analyticsClient *AnalyticsClient
-	logFile         *os.File
-	invocationUUID  uuid.UUID
+	disableSentry      = false
+	logConsole         = false
+	oldAnalyticsClient *AnalyticsClient
+	logFile            *os.File
+	invocationUUID     uuid.UUID
 )
 
 func NewCmdRoot() *cobra.Command {
 	logLevel := enum.NewEnum([]string{"trace", "debug", "info", "warn", "error"}, "info")
 	logFormat := enum.NewEnum([]string{"text", "json"}, "text")
 	telemetryLevel := enum.NewEnum([]string{"none", "errors", "stats", "all"}, "all")
-	logConsole := false
 	noLogFile := false
 	logFileName := "cloudquery.log"
 	sentryDsn := sentryDsnDefault
@@ -85,12 +86,13 @@ func NewCmdRoot() *cobra.Command {
 			}
 
 			sendStats := funk.ContainsString([]string{"all", "stats"}, telemetryLevel.String())
-			customAnalyticsHost := os.Getenv("CQ_ANALYTICS_HOST") != defaultAnalyticsHost
+			_, customAnalyticsHost := os.LookupEnv("CQ_ANALYTICS_HOST")
 			if (Version != "development" || customAnalyticsHost) && sendStats {
-				analyticsClient, err = initAnalytics()
+				oldAnalyticsClient, err = initAnalytics()
 				if err != nil {
 					log.Warn().Err(err).Msg("failed to initialize analytics client")
 				}
+				analytics.InitClient()
 			}
 
 			sendErrors := funk.ContainsString([]string{"all", "errors"}, telemetryLevel.String())
@@ -176,12 +178,14 @@ func NewCmdRoot() *cobra.Command {
 		pluginCmd,
 		addonCmd,
 	)
+
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 	cmd.DisableAutoGenTag = true
 	cobra.OnFinalize(func() {
-		if analyticsClient != nil {
-			analyticsClient.Close()
+		if oldAnalyticsClient != nil {
+			oldAnalyticsClient.Close()
 		}
+		analytics.Close()
 	})
 
 	return cmd

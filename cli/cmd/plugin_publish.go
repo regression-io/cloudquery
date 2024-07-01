@@ -104,7 +104,7 @@ func runPluginPublish(ctx context.Context, cmd *cobra.Command, args []string) er
 		return fmt.Errorf("failed to create new draft version: %w", err)
 	}
 
-	if pkgJSON.Kind == cloudquery_api.Source {
+	if pkgJSON.Kind == cloudquery_api.PluginKindSource {
 		// upload table schemas
 		fmt.Println("Uploading table schemas...")
 		tablesJSONPath := filepath.Join(distDir, "tables.json")
@@ -156,8 +156,10 @@ func runPluginPublish(ctx context.Context, cmd *cobra.Command, args []string) er
 }
 
 func publishPluginAssets(ctx context.Context, c *cloudquery_api.ClientWithResponses, token, distDir string, pkgJSON publish.PackageJSONV1) error {
-	if pkgJSON.PackageType == string(cloudquery_api.Docker) {
-		return publish.PublishToDockerRegistry(ctx, token, distDir, pkgJSON)
+	if pkgJSON.PackageType == string(cloudquery_api.PluginPackageTypeDocker) {
+		return publish.PublishToDockerRegistry(ctx, token, distDir, pkgJSON, publish.Opts{
+			NoProgress: logConsole,
+		})
 	}
 
 	return publish.PublishNativeBinaries(ctx, c, distDir, pkgJSON)

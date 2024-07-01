@@ -21,6 +21,10 @@ This is the (nested) plugin spec
 
   List of brokers to connect to.
 
+  Example broker address:
+
+  - `"localhost:9092"` default URL for a local Kafka broker
+
 - `format` (`string`) (required)
 
   Format of the output file. Supported values are `csv`, `json` and `parquet`.
@@ -41,10 +45,6 @@ This is the (nested) plugin spec
 
   If connecting via SASL/PLAIN, the password to use.
 
-- `client_id` (`string`) (optional) (default: `cq-destination-kafka`)
-
-  Client ID to be set for Kafka API calls.
-
 - `verbose` (`boolean`) (optional) (default: `false`)
 
   If `true`, the plugin will log all underlying Kafka client messages to the log.
@@ -52,6 +52,11 @@ This is the (nested) plugin spec
 - `batch_size` (`integer`) (optional) (default: `1000`)
 
   Number of records to write before starting a new object.
+
+- `topic_details` ([topic_details](#topic_details)) (optional)
+
+  Optional parameters to set topic details.
+
 
 ### format_spec
 
@@ -62,3 +67,15 @@ This is the (nested) plugin spec
 - `skip_header` (`boolean`) (optional) (default: `false`)
 
   Specifies if the first line of a file should be the headers (when format is `csv`).
+
+
+### topic_details
+
+- `num_partitions` (`integer`) (optional) (default: `1`)
+
+  Number of partitions for the newly created topic.
+
+- `replication_factor` (`integer`) (optional) (default: `1`)
+
+  Replication factor for the topic.
+

@@ -15,6 +15,10 @@ import (
 type Spec struct {
 	// Connection string to connect to the database.
 	// See [SDK documentation](https://github.com/ClickHouse/clickhouse-go#dsn) for more details.
+	//
+	// Example connection string:
+	//
+	// - `"clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60"`
 	ConnectionString string `json:"connection_string,omitempty" jsonschema:"required,minLength=1"`
 
 	// Cluster name to be used for [distributed DDL](https://clickhouse.com/docs/en/sql-reference/distributed-ddl).
@@ -33,10 +37,10 @@ type Spec struct {
 	CACert string `json:"ca_cert,omitempty"`
 
 	// Maximum number of items that may be grouped together to be written in a single write.
-	BatchSize int `json:"batch_size,omitempty" jsonschema:"minimum=1,default=10000"`
+	BatchSize int64 `json:"batch_size,omitempty" jsonschema:"minimum=1,default=10000"`
 
 	// Maximum size of items that may be grouped together to be written in a single write.
-	BatchSizeBytes int `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=5242880"`
+	BatchSizeBytes int64 `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=5242880"`
 
 	// Maximum interval between batch writes.
 	BatchTimeout *configtype.Duration `json:"batch_timeout,omitempty"`

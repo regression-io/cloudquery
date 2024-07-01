@@ -32,7 +32,7 @@ func migrateConnectionV3(ctx context.Context, sourceClient *managedplugin.Client
 			transformer.WithSyncTimeColumn(migrateStart),
 		}
 		if destinationSpecs[i].SyncGroupId != "" {
-			opts = append(opts, transformer.WithSyncGroupIdColumn(destinationSpecs[i].RenderedSyncGroupId(migrateStart)))
+			opts = append(opts, transformer.WithSyncGroupIdColumn(destinationSpecs[i].RenderedSyncGroupId(migrateStart, invocationUUID.String())))
 		}
 		if destinationSpecs[i].WriteMode == specs.WriteModeAppend {
 			opts = append(opts, transformer.WithRemovePKs(), transformer.WithRemovePKs())
@@ -100,6 +100,10 @@ func migrateConnectionV3(ctx context.Context, sourceClient *managedplugin.Client
 			if err := writeClients[i].Send(wr); err != nil {
 				return handleSendError(err, writeClients[i], "migrate")
 			}
+		}
+
+		if err := migrateSummaryTable(writeClients[i], destinationTransformers[i], destinationSpecs[i]); err != nil {
+			return fmt.Errorf("failed to migrate sync summary table: %w", err)
 		}
 		if _, err := writeClients[i].CloseAndRecv(); err != nil {
 			return err

@@ -12,13 +12,18 @@ const (
 
 type Spec struct {
 	// Connection string to connect to the database. See the [Go driver documentation](https://github.com/go-sql-driver/mysql#dsn-data-source-name) for details.
+	//
+	// - `"user:password@tcp(127.0.0.1:3306)/dbname"` connect with TCP
+	// - `"user:password@127.0.0.1:3306/dbname?charset=utf8mb4&parseTime=True&loc=Local"` connect and set charset, time parsing, and location
+	// - `"user:password@localhost:3306/dbname?timeout=30s&readTimeout=1s&writeTimeout=1s"` connect and set various timeouts
+	// - `"user:password@/dbname?loc=UTC&allowNativePasswords=true&tls=preferred"` connect and set location and native password allowance, and prefer TLS
 	ConnectionString string `json:"connection_string" jsonschema:"required,minLength=1"`
 
 	// Maximum number of items that may be grouped together to be written in a single write.
-	BatchSize int `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
+	BatchSize int64 `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
 
 	// Maximum size of items that may be grouped together to be written in a single write.
-	BatchSizeBytes int `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
+	BatchSizeBytes int64 `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
 }
 
 //go:embed schema.json

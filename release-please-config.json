@@ -40,9 +40,6 @@
     "plugins/destination/mongodb": {
       "component": "plugins-destination-mongodb"
     },
-    "plugins/destination/motherduck": {
-      "component": "plugins-destination-motherduck"
-    },
     "plugins/destination/mssql": {
       "component": "plugins-destination-mssql"
     },
@@ -94,6 +91,9 @@
         "plugin/plugin.py"
       ],
       "release-type": "python"
+    },
+    "plugins/source/xkcd": {
+      "component": "plugins-source-xkcd"
     },
     "scaffold": {
       "component": "scaffold"

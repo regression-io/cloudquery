@@ -32,7 +32,7 @@ func TestSync(t *testing.T) {
 			config: "multiple-sources.yml",
 			summary: []syncSummary{
 				{
-					CliVersion:        "development",
+					CLIVersion:        "development",
 					DestinationErrors: 0,
 					DestinationName:   "test",
 					DestinationPath:   "cloudquery/test",
@@ -41,7 +41,7 @@ func TestSync(t *testing.T) {
 					SourcePath:        "cloudquery/test",
 				},
 				{
-					CliVersion:        "development",
+					CLIVersion:        "development",
 					DestinationErrors: 0,
 					DestinationName:   "test",
 					DestinationPath:   "cloudquery/test",
@@ -60,7 +60,7 @@ func TestSync(t *testing.T) {
 			config: "multiple-sources-destinations.yml",
 			summary: []syncSummary{
 				{
-					CliVersion:      "development",
+					CLIVersion:      "development",
 					DestinationName: "test-1",
 					DestinationPath: "cloudquery/test",
 					Resources:       12,
@@ -68,7 +68,7 @@ func TestSync(t *testing.T) {
 					SourcePath:      "cloudquery/test",
 				},
 				{
-					CliVersion:      "development",
+					CLIVersion:      "development",
 					DestinationName: "test-2",
 					DestinationPath: "cloudquery/test",
 					Resources:       12,
@@ -82,7 +82,7 @@ func TestSync(t *testing.T) {
 			config: "different-backend-from-destination.yml",
 			summary: []syncSummary{
 				{
-					CliVersion:      "development",
+					CLIVersion:      "development",
 					DestinationName: "test1",
 					DestinationPath: "cloudquery/test",
 					Resources:       12,
@@ -125,7 +125,14 @@ func TestSync(t *testing.T) {
 			if len(tc.summary) > 0 {
 				summaries := readSummaries(t, summaryPath)
 				// have to ignore SyncID because it's random and plugin versions since we update those frequently using an automated process
-				diff := cmp.Diff(tc.summary, summaries, cmpopts.IgnoreFields(syncSummary{}, "SyncID", "DestinationVersion", "SourceVersion"))
+				// also ignore SyncTime because it's a timestamp
+				diff := cmp.Diff(tc.summary, summaries, cmpopts.IgnoreFields(syncSummary{}, "SyncID", "DestinationVersion", "SourceVersion", "SyncTime"))
+				for _, s := range summaries {
+					assert.NotEmpty(t, s.SyncID)
+					assert.NotEmpty(t, s.SyncTime)
+					assert.NotEmpty(t, s.DestinationVersion)
+					assert.NotEmpty(t, s.SourceVersion)
+				}
 				require.Empty(t, diff, "unexpected summaries: %v", diff)
 			}
 
@@ -146,6 +153,88 @@ func TestSync(t *testing.T) {
 				require.Contains(t, err.Error(), tc.err)
 			} else {
 				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestSyncWithSummaryTable(t *testing.T) {
+	configs := []struct {
+		name         string
+		config       string
+		err          string
+		summaryTable []syncSummary
+	}{
+		{
+			name:   "with-destination-summary",
+			config: "with-destination-summary.yml",
+			summaryTable: []syncSummary{
+				{
+					CLIVersion:         "development",
+					DestinationErrors:  0,
+					DestinationName:    "test",
+					DestinationPath:    "cloudquery/file",
+					DestinationVersion: "v4.0.1",
+					Resources:          12,
+					SourceName:         "test",
+					SourcePath:         "cloudquery/test",
+					SourceVersion:      "v3.1.15",
+				},
+			},
+		},
+	}
+	_, filename, _, _ := runtime.Caller(0)
+	currentDir := path.Dir(filename)
+
+	for _, tc := range configs {
+		t.Run(tc.name, func(t *testing.T) {
+			testConfig := path.Join(currentDir, "testdata", tc.config)
+			cmd := NewCmdRoot()
+			baseArgs := testCommandArgs(t)
+			argList := append([]string{"sync", testConfig}, baseArgs...)
+
+			summaryTablePath := ""
+			if len(tc.summaryTable) > 0 {
+				datadir := t.TempDir()
+				summaryTablePath = path.Join(datadir, "/data/cloudquery_sync_summaries")
+				// this is the only way to inject the dynamic output path
+				os.Setenv("CQ_FILE_DESTINATION", path.Join(datadir, "/data/{{TABLE}}/{{UUID}}.{{FORMAT}}"))
+			}
+			cmd.SetArgs(argList)
+			err := cmd.Execute()
+			if tc.err != "" {
+				assert.Contains(t, err.Error(), tc.err)
+			} else {
+				assert.NoError(t, err)
+			}
+			summaries := []syncSummary{}
+			if len(tc.summaryTable) > 0 {
+				// find all json files in the data directory
+				files, err := os.ReadDir(summaryTablePath)
+				if err != nil {
+					t.Fatalf("failed to read directory %v: %v", summaryTablePath, err)
+				}
+				for _, file := range files {
+					if file.IsDir() {
+						continue
+					}
+					b, err := os.ReadFile(path.Join(summaryTablePath, file.Name()))
+					if err != nil {
+						t.Fatalf("failed to read file %v: %v", file.Name(), err)
+					}
+					var v syncSummary
+					assert.NoError(t, json.Unmarshal(b, &v))
+					summaries = append(summaries, v)
+				}
+
+				diff := cmp.Diff(tc.summaryTable, summaries, cmpopts.IgnoreFields(syncSummary{}, "SyncID"))
+				require.Empty(t, diff, "unexpected summaries: %v", diff)
+
+				// have to ignore SyncID because it's random and plugin versions since we update those frequently using an automated process
+				// also ignore SyncTime because it's a timestamp
+				for _, s := range summaries {
+					assert.NotEmpty(t, s.SyncID)
+				}
 			}
 		})
 	}
@@ -207,6 +296,7 @@ func TestSync_IsolatedPluginEnvironmentsInCloud(t *testing.T) {
 	currentDir := path.Dir(filename)
 
 	t.Setenv("CLOUDQUERY_API_KEY", "cqsr_123")
+	t.Setenv("CQ_CLOUD", "1")
 	t.Setenv("_CQ_TEAM_NAME", "test_team")
 	t.Setenv("_CQ_SYNC_NAME", "test_sync")
 	t.Setenv("_CQ_SYNC_RUN_ID", uuid.Must(uuid.NewUUID()).String())
