@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
@@ -16,7 +17,6 @@ import (
 
 type Client struct {
 	plugin.UnimplementedSource
-	batchwriter.UnimplementedDeleteRecord
 
 	writer *batchwriter.BatchWriter
 	db     *sql.DB
@@ -24,9 +24,12 @@ type Client struct {
 	spec   Spec
 }
 
-func New(ctx context.Context, logger zerolog.Logger, spec []byte, _ plugin.NewClientOptions) (plugin.Client, error) {
+func New(ctx context.Context, logger zerolog.Logger, spec []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
 	c := &Client{
 		logger: logger.With().Str("module", "sqlite-dest").Logger(),
+	}
+	if opts.NoConnection {
+		return c, nil
 	}
 
 	if err := json.Unmarshal(spec, &c.spec); err != nil {
@@ -50,7 +53,7 @@ func New(ctx context.Context, logger zerolog.Logger, spec []byte, _ plugin.NewCl
 func (c *Client) Close(ctx context.Context) error {
 	var err error
 	if c.db == nil {
-		return fmt.Errorf("client already closed or not initialized")
+		return errors.New("client already closed or not initialized")
 	}
 	err = c.db.Close()
 	c.db = nil

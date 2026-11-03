@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/decimal128"
-	"github.com/apache/arrow/go/v16/arrow/decimal256"
-	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/decimal128"
+	"github.com/apache/arrow-go/v18/arrow/decimal256"
+	"github.com/apache/arrow-go/v18/arrow/float16"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -24,8 +26,9 @@ func ensureRecord(t *testing.T, tc testCase) {
 	t.Run(fmt.Sprintf("%s/%v", tc.dataType, tc.value), func(t *testing.T) {
 		t.Helper()
 		table := &schema.Table{Columns: schema.ColumnList{{Name: "field", Type: tc.dataType}}}
-		record, err := Record(table.ToArrowSchema(), []any{tc.value})
-		require.NoError(t, err)
+		builder := array.NewRecordBuilder(memory.DefaultAllocator, table.ToArrowSchema())
+		require.NoError(t, AppendToRecordBuilder(builder, []any{tc.value}))
+		record := builder.NewRecordBatch()
 		require.Equal(t, int64(1), record.NumRows())
 		require.Equal(t, int64(1), record.NumCols())
 

@@ -4,78 +4,28 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
-	cloudquery_api "github.com/cloudquery/cloudquery-api-go"
-	apiAuth "github.com/cloudquery/cloudquery-api-go/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/api"
-	"github.com/cloudquery/cloudquery/cli/internal/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/specs/v0"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/auth"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/env"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/specs/v0"
 	"github.com/cloudquery/plugin-pb-go/managedplugin"
 	"github.com/cloudquery/plugin-pb-go/pb/plugin/v3"
-	"github.com/google/uuid"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 const (
-	testConnectionShort   = "Test plugin connections to sources and destinations"
-	testConnectionExample = `# Test plugin connections to sources and destinations
+	testConnectionShort   = "Test plugin connections to sources and/or destinations"
+	testConnectionExample = `# Test plugin connections to sources and/or destinations
 cloudquery test-connection ./directory
 # Test plugin connections from directories and files
 cloudquery test-connection ./directory ./aws.yml ./pg.yml
 `
 )
-
-func getSyncTestConnectionAPIClient() (*cloudquery_api.ClientWithResponses, error) {
-	authClient := apiAuth.NewTokenClient()
-	if authClient.GetTokenType() != apiAuth.SyncTestConnectionAPIKey {
-		return nil, nil
-	}
-
-	token, err := authClient.GetToken()
-	if err != nil {
-		return nil, err
-	}
-	return api.NewClient(token.Value)
-}
-
-func updateSyncTestConnectionStatus(ctx context.Context, logger zerolog.Logger, status cloudquery_api.SyncTestConnectionStatus) {
-	apiClient, err := getSyncTestConnectionAPIClient()
-	if err != nil {
-		logger.Warn().Err(err).Msg("Failed to get sync test connection API client")
-		return
-	}
-	if apiClient == nil {
-		return
-	}
-	teamName, syncTestConnectionId := os.Getenv("_CQ_TEAM_NAME"), os.Getenv("_CQ_SYNC_TEST_CONNECTION_ID")
-	if teamName == "" || syncTestConnectionId == "" {
-		log.Warn().Msg("Skipping sync test connection status update as environment variables are not set")
-		return
-	}
-	syncTestConnectionUUID, err := uuid.Parse(syncTestConnectionId)
-	if err != nil {
-		log.Warn().Err(err).Msg("Failed to parse sync test connection UUID")
-		return
-	}
-	log.Info().Str("status", string(status)).Msg("Sending sync test connection to API")
-	res, err := apiClient.UpdateSyncTestConnectionWithResponse(ctx, teamName, syncTestConnectionUUID, cloudquery_api.UpdateSyncTestConnectionJSONRequestBody{
-		Status: status,
-	})
-	if err != nil {
-		log.Warn().Err(err).Msg("Failed to send sync test connection to API")
-		return
-	}
-	if res.StatusCode() != http.StatusOK {
-		log.Warn().Str("status", res.Status()).Int("code", res.StatusCode()).Msg("Failed to send test connection to API")
-	} else {
-		log.Info().Str("status", string(status)).Msg("Sent sync test connection to API")
-	}
-}
 
 func newCmdTestConnection() *cobra.Command {
 	cmd := &cobra.Command{
@@ -96,18 +46,21 @@ func testConnection(cmd *cobra.Command, args []string) error {
 	}
 
 	ctx := cmd.Context()
-	updateSyncTestConnectionStatus(cmd.Context(), log.Logger, cloudquery_api.SyncTestConnectionStatusStarted)
+
+	// in the cloud sync environment, we pass only the relevant environment variables to the plugin
+	isolatePluginEnvironment := env.IsCloud()
+	osEnviron := os.Environ()
 
 	log.Info().Strs("args", args).Msg("Loading spec(s)")
 	fmt.Printf("Loading spec(s) from %s\n", strings.Join(args, ", "))
-	specReader, err := specs.NewSpecReader(args)
+	specReader, err := specs.NewRelaxedSpecReader(args)
 	if err != nil {
 		return fmt.Errorf("failed to load spec(s) from %s. Error: %w", strings.Join(args, ", "), err)
 	}
 	sources := specReader.Sources
 	destinations := specReader.Destinations
 
-	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, destinations)
+	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, destinations, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get auth token: %w", err)
 	}
@@ -115,10 +68,17 @@ func testConnection(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get team name: %w", err)
 	}
+
+	pluginVersionWarner, _ := managedplugin.NewPluginVersionWarner(log.Logger, authToken.Value)
+	specs.WarnOnOutdatedVersions(ctx, pluginVersionWarner, sources, destinations, nil)
+
 	opts := []managedplugin.Option{
 		managedplugin.WithLogger(log.Logger),
 		managedplugin.WithAuthToken(authToken.Value),
 		managedplugin.WithTeamName(teamName),
+	}
+	if logConsole {
+		opts = append(opts, managedplugin.WithNoProgress())
 	}
 	if cqDir != "" {
 		opts = append(opts, managedplugin.WithDirectory(cqDir))
@@ -137,6 +97,10 @@ func testConnection(cmd *cobra.Command, args []string) error {
 			Registry:   SpecRegistryToPlugin(source.Registry),
 			DockerAuth: source.DockerRegistryAuthToken,
 		}
+		if isolatePluginEnvironment {
+			sourcePluginConfigs[i].Environment = filterPluginEnv(osEnviron, source.Name, "source")
+			secretAwareRedactor.AddSecretEnv(sourcePluginConfigs[i].Environment)
+		}
 		sourceRegInferred[i] = source.RegistryInferred()
 	}
 	destinationPluginConfigs := make([]managedplugin.Config, len(destinations))
@@ -148,6 +112,10 @@ func testConnection(cmd *cobra.Command, args []string) error {
 			Path:       destination.Path,
 			Registry:   SpecRegistryToPlugin(destination.Registry),
 			DockerAuth: destination.DockerRegistryAuthToken,
+		}
+		if isolatePluginEnvironment {
+			destinationPluginConfigs[i].Environment = filterPluginEnv(osEnviron, destination.Name, "destination")
+			secretAwareRedactor.AddSecretEnv(destinationPluginConfigs[i].Environment)
 		}
 		destinationRegInferred[i] = destination.RegistryInferred()
 	}
@@ -171,34 +139,121 @@ func testConnection(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	var initErrors []error
+	var allErrors error
+	testConnectionResults := make([]testConnectionResult, 0, len(sourceClients)+len(destinationClients))
 	for i, client := range sourceClients {
 		pluginClient := plugin.NewPluginClient(client.Conn)
-		log.Info().Str("source", sources[i].VersionString()).Msg("Initializing source")
-		err := initPlugin(ctx, pluginClient, sources[i].Spec, false, invocationUUID.String())
+		log.Info().Str("source", sources[i].VersionString()).Msg("Testing source")
+		testResult, err := testPluginConnection(ctx, pluginClient, sources[i].Spec)
 		if err != nil {
-			initErrors = append(initErrors, fmt.Errorf("failed to init source %v: %w", sources[i].VersionString(), err))
-		} else {
-			log.Info().Str("source", sources[i].VersionString()).Msg("Initialized source")
+			allErrors = errors.Join(allErrors, fmt.Errorf("failed to test source %v: %w", sources[i].VersionString(), err))
+			continue
 		}
+		testResult.PluginRef = sources[i].VersionString()
+		testResult.PluginKind = "source"
+		testConnectionResults = append(testConnectionResults, *testResult)
 	}
 	for i, client := range destinationClients {
 		pluginClient := plugin.NewPluginClient(client.Conn)
-		log.Info().Str("destination", destinations[i].VersionString()).Msg("Initializing destination")
-		err := initPlugin(ctx, pluginClient, destinations[i].Spec, false, invocationUUID.String())
+		log.Info().Str("destination", destinations[i].VersionString()).Msg("Testing destination")
+		testResult, err := testPluginConnection(ctx, pluginClient, destinations[i].Spec)
 		if err != nil {
-			initErrors = append(initErrors, fmt.Errorf("failed to init destination %v: %w", destinations[i].VersionString(), err))
-		} else {
-			log.Info().Str("destination", destinations[i].VersionString()).Msg("Initialized destination")
+			allErrors = errors.Join(allErrors, fmt.Errorf("failed to test destination %v: %w", destinations[i].VersionString(), err))
+			continue
+		}
+		testResult.PluginRef = destinations[i].VersionString()
+		testResult.PluginKind = "destination"
+		testConnectionResults = append(testConnectionResults, *testResult)
+	}
+
+	log.Info().Any("testresults", testConnectionResults).Msg("Test connection completed")
+
+	maxLength := 0
+	for _, testResult := range testConnectionResults {
+		if len(testResult.PluginRef) > maxLength {
+			maxLength = len(testResult.PluginRef)
 		}
 	}
 
-	allErrors := errors.Join(initErrors...)
-	status := cloudquery_api.SyncTestConnectionStatusCompleted
-	if allErrors != nil {
-		status = cloudquery_api.SyncTestConnectionStatusFailed
+	connFailures := make([]testConnectionResult, 0, len(testConnectionResults))
+	for i, testResult := range testConnectionResults {
+		if i == 0 {
+			fmt.Println("Test Connection Results")
+		}
+		fmt.Printf("%-12s %s %s", testResult.PluginKind, testResult.PluginRef, strings.Repeat(" ", maxLength-len(testResult.PluginRef)+1))
+		if testResult.Success {
+			fmt.Println("Success")
+			continue
+		}
+		fmt.Println("Failure:", testResult.FailureCode, "\t", testResult.FailureDescription)
+		connFailures = append(connFailures, testConnectionResults[i])
 	}
-	updateSyncTestConnectionStatus(ctx, log.Logger, status)
+
+	if len(connFailures) > 0 {
+		allErrors = errors.Join(allErrors, &testConnectionFailures{failed: connFailures})
+	}
 
 	return allErrors
+}
+
+type testConnectionFailures struct {
+	failed []testConnectionResult
+}
+
+func (*testConnectionFailures) Error() string {
+	// The errs are already shown in the console, so we don't need to show them again here
+	return "at least one test connection failed"
+}
+
+type testConnectionResult struct {
+	PluginRef          string `json:"plugin_ref"`
+	PluginKind         string `json:"plugin_kind"`
+	Success            bool   `json:"success"`
+	FailureCode        string `json:"failure_code,omitempty"`
+	FailureDescription string `json:"failure_description,omitempty"`
+}
+
+func testPluginConnection(ctx context.Context, client plugin.PluginClient, spec map[string]any) (*testConnectionResult, error) {
+	specBytes, err := marshalSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	in := &plugin.TestConnection_Request{
+		Spec: specBytes,
+	}
+
+	resp, err := client.TestConnection(ctx, in)
+	if err != nil {
+		if gRPCErr, ok := grpcstatus.FromError(err); ok {
+			if gRPCErr.Code() == codes.Unimplemented {
+				if !env.IsCloud() {
+					return &testConnectionResult{
+						Success:            false,
+						FailureCode:        "UNIMPLEMENTED",
+						FailureDescription: gRPCErr.Message(),
+					}, nil
+				}
+				err := initPlugin(ctx, client, spec, false, invocationUUID.String())
+				if err != nil {
+					return &testConnectionResult{
+						Success:            false,
+						FailureCode:        "OTHER",
+						FailureDescription: secretAwareRedactor.RedactStr(err.Error()),
+					}, nil
+				}
+
+				return &testConnectionResult{
+					Success: true,
+				}, nil
+			}
+		}
+		return nil, err
+	}
+
+	return &testConnectionResult{
+		Success:            resp.Success,
+		FailureCode:        resp.FailureCode,
+		FailureDescription: secretAwareRedactor.RedactStr(resp.FailureDescription),
+	}, nil
 }

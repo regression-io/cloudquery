@@ -8,6 +8,8 @@ spec:
   registry: cloudquery
   version: "VERSION_DESTINATION_MEILISEARCH"
   write_mode: "overwrite"
+  send_sync_summary: true
+  # Learn more about the configuration options at https://cql.ink/meilisearch_destination
   spec:
     # meilisearch plugin spec
     host: "${MEILISEARCH_HOST}"

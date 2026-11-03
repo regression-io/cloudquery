@@ -3,20 +3,24 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
+	"github.com/aws/smithy-go"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/google/uuid"
 )
 
 const maxFileSize = 1024 * 1024 * 20
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	if !c.spec.NoRotate {
 		return fmt.Errorf("reading is not supported when no_rotate is false. Table: %q", table.Name)
 	}
@@ -26,13 +30,23 @@ func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow
 
 	name := c.spec.ReplacePathVariables(table.Name, uuid.NewString(), time.Time{}, c.syncID)
 	writerAtBuffer := manager.NewWriteAtBuffer(make([]byte, 0, maxFileSize))
-	_, err := c.downloader.Download(ctx,
-		writerAtBuffer,
-		&s3.GetObjectInput{
-			Bucket: aws.String(c.spec.Bucket),
-			Key:    aws.String(name),
+	_, err := c.transferManager.DownloadObject(ctx,
+		&transfermanager.DownloadObjectInput{
+			Bucket:   aws.String(c.spec.Bucket),
+			Key:      aws.String(name),
+			WriterAt: writerAtBuffer,
 		})
+
 	if err != nil {
+		var smithyError *smithy.OperationError
+		if errors.As(err, &smithyError); smithyError != nil {
+			var httpError *awshttp.ResponseError
+			if errors.As(smithyError.Err, &httpError); httpError != nil {
+				if httpError.HTTPStatusCode() == http.StatusNotFound {
+					return nil
+				}
+			}
+		}
 		return err
 	}
 	r := bytes.NewReader(writerAtBuffer.Bytes())

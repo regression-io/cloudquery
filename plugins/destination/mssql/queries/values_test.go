@@ -1,12 +1,13 @@
 package queries
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
+
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetRows(t *testing.T) {
@@ -24,7 +25,7 @@ func TestGetRows(t *testing.T) {
 	builder := array.NewRecordBuilder(mem, schema)
 	defer builder.Release()
 
-	records := make([]arrow.Record, 7)
+	records := make([]arrow.RecordBatch, 7)
 	defer func() {
 		for _, rec := range records {
 			rec.Release()
@@ -54,11 +55,11 @@ func TestGetRows(t *testing.T) {
 	}
 }
 
-func genRecord(mem memory.Allocator, schema *arrow.Schema, rows int) arrow.Record {
+func genRecord(mem memory.Allocator, schema *arrow.Schema, rows int) arrow.RecordBatch {
 	builder := array.NewRecordBuilder(mem, schema)
 	defer builder.Release()
 	for _, fBuilder := range builder.Fields() {
 		fBuilder.AppendEmptyValues(rows)
 	}
-	return builder.NewRecord()
+	return builder.NewRecordBatch()
 }

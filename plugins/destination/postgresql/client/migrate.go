@@ -2,9 +2,13 @@ package client
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/jackc/pgx/v5"
@@ -14,6 +18,9 @@ import (
 
 // MigrateTableBatch migrates a table. It forms part of the writer.MixedBatchWriter interface.
 func (c *Client) MigrateTableBatch(ctx context.Context, messages message.WriteMigrateTables) error {
+	if err := c.ensurePgVectorExtensionInstalled(ctx); err != nil {
+		return err
+	}
 	tables, err := tablesFromMessages(messages)
 	if err != nil {
 		return err
@@ -30,9 +37,9 @@ func (c *Client) MigrateTableBatch(ctx context.Context, messages message.WriteMi
 		// in the same batch twice.
 		safeTables[msg.Table.Name] = !msg.MigrateForce
 	}
-	nonAutoMigrateableTables, changes := c.nonAutoMigrateableTables(tables, pgTables, safeTables)
-	if len(nonAutoMigrateableTables) > 0 {
-		return fmt.Errorf("tables %s with changes %v require migration. Migrate manually or consider using 'migrate_mode: forced'", strings.Join(nonAutoMigrateableTables, ","), changes)
+	nonAutoMigratableTables := c.nonAutoMigratableTables(tables, pgTables, safeTables)
+	if len(nonAutoMigratableTables) > 0 {
+		return fmt.Errorf("\nCan't migrate tables automatically, migrate manually or consider using 'migrate_mode: forced'. Non auto migratable tables changes:\n\n%s", schema.GetChangesSummary(nonAutoMigratableTables))
 	}
 
 	for _, table := range tables {
@@ -50,7 +57,7 @@ func (c *Client) MigrateTableBatch(ctx context.Context, messages message.WriteMi
 			}
 		} else {
 			changes := table.GetChanges(pgTable)
-			if c.canAutoMigrate(changes) {
+			if canAutoMigrate(changes) {
 				c.logger.Info().Str("table", tableName).Msg("Table exists, auto-migrating")
 				if err := c.autoMigrateTable(ctx, table, changes); err != nil {
 					return err
@@ -63,6 +70,11 @@ func (c *Client) MigrateTableBatch(ctx context.Context, messages message.WriteMi
 				if err := c.createTableIfNotExist(ctx, table); err != nil {
 					return err
 				}
+			}
+		}
+		if c.spec.CreatePerformanceIndexes {
+			if err := c.createPerformanceIndexes(ctx, table); err != nil {
+				return err
 			}
 		}
 	}
@@ -78,11 +90,20 @@ func (c *Client) MigrateTableBatch(ctx context.Context, messages message.WriteMi
 }
 
 func (c *Client) normalizeTable(table *schema.Table) *schema.Table {
+	normalizedTable := c.pgType.normalizeTable(table)
+	// pgTablesToPKConstraints is populated when handling migrate messages
+	if entry := c.pgTablesToPKConstraints[table.Name]; entry != nil {
+		normalizedTable.PkConstraintName = entry.name
+	}
+	return normalizedTable
+}
+
+func (p pgType) normalizeTable(table *schema.Table) *schema.Table {
 	normalizedTable := schema.Table{
 		Name: table.Name,
 	}
 	for _, col := range table.Columns {
-		if c.pgType == pgTypeCrateDB {
+		if p == pgTypeCrateDB {
 			// CrateDB doesn't allow columns that start with an underscore,
 			// so we trim the leading underscore from the column name
 			col.Name = strings.TrimLeft(col.Name, "_")
@@ -100,13 +121,9 @@ func (c *Client) normalizeTable(table *schema.Table) *schema.Table {
 		if col.PrimaryKey {
 			col.NotNull = true
 		}
-		col.Type = c.PgToSchemaType(c.SchemaTypeToPg(col.Type))
+		col.Type = p.pgToSchemaType(p.schemaTypeToPg(col.Type))
 
 		normalizedTable.Columns = append(normalizedTable.Columns, col)
-		// pgTablesToPKConstraints is populated when handling migrate messages
-		if entry := c.pgTablesToPKConstraints[table.Name]; entry != nil {
-			normalizedTable.PkConstraintName = entry.name
-		}
 	}
 
 	return &normalizedTable
@@ -131,12 +148,14 @@ func (c *Client) autoMigrateTable(ctx context.Context, table *schema.Table, chan
 			if err != nil {
 				return err
 			}
+		default:
+			continue
 		}
 	}
 	return nil
 }
 
-func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
+func canAutoMigrate(changes []schema.TableColumnChange) bool {
 	// The SDK can detect more granular changes than we can handle
 	// We know that when the `TableColumnChangeTypeMoveToCQOnly` is present there will be other changes that were found as well
 	// As long as the only change is to remove PK from columns and add it to _cq_id, we can skip handling the changes
@@ -159,12 +178,14 @@ func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
 
 		case schema.TableColumnChangeTypeMoveToCQOnly:
 			cqMigration = true
+		default:
+			continue
 		}
 	}
 
 	for _, change := range changes {
 		switch change.Type {
-		case schema.TableColumnChangeTypeRemoveUniqueConstraint:
+		case schema.TableColumnChangeTypeRemoveUniqueConstraint, schema.TableColumnChangeTypeMoveToCQOnly:
 			continue
 		case schema.TableColumnChangeTypeAdd:
 			if change.Current.PrimaryKey || change.Current.NotNull {
@@ -179,10 +200,8 @@ func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
 				}
 				return false
 			}
-		case schema.TableColumnChangeTypeMoveToCQOnly:
-			continue
 		case schema.TableColumnChangeTypeUpdate:
-			if cqMigration && ((len(columnsAddingPK) == 1 && columnsAddingPK[0] == schema.CqIDColumn.Name) || funk.Contains(columnsRemovingPK, change.ColumnName)) {
+			if cqMigration && arrow.TypeEqual(change.Current.Type, change.Previous.Type) && ((len(columnsAddingPK) == 1 && columnsAddingPK[0] == schema.CqIDColumn.Name) || funk.Contains(columnsRemovingPK, change.ColumnName)) {
 				// We don't need to handle these changes as they are a part of the CQID migration
 				continue
 			}
@@ -203,30 +222,36 @@ func (c *Client) normalizeTables(tables schema.Tables) schema.Tables {
 	return result
 }
 
-func (c *Client) nonAutoMigrateableTables(tables schema.Tables, pgTables schema.Tables, safeTables map[string]bool) ([]string, [][]schema.TableColumnChange) {
-	var result []string
-	var tableChanges [][]schema.TableColumnChange
+func (*Client) nonAutoMigratableTables(tables schema.Tables, pgTables schema.Tables, safeTables map[string]bool) map[string][]schema.TableColumnChange {
+	result := make(map[string][]schema.TableColumnChange)
 	for _, t := range tables {
 		pgTable := pgTables.Get(t.Name)
 		if pgTable == nil {
 			continue
 		}
 		changes := t.GetChanges(pgTable)
-		if safeTables[t.Name] && !c.canAutoMigrate(changes) {
-			result = append(result, t.Name)
-			tableChanges = append(tableChanges, changes)
+		if safeTables[t.Name] && !canAutoMigrate(changes) {
+			result[t.Name] = changes
 		}
 	}
-	return result, tableChanges
+	return result
 }
 
 func (c *Client) dropTable(ctx context.Context, tableName string) error {
 	c.logger.Info().Str("table", tableName).Msg("Dropping table")
-	sql := "drop table " + tableName
+	sql := "drop table " + pgx.Identifier{tableName}.Sanitize()
 	if _, err := c.conn.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("failed to drop table %s: %w", tableName, err)
 	}
 	return nil
+}
+
+func cqIDConstraintSQLs(sanitizedTableName, pkName string) (dropStmt, addStmt string) {
+	sanitizedPKName := pgx.Identifier{pkName}.Sanitize()
+	dropStmt = "ALTER TABLE " + sanitizedTableName + " DROP CONSTRAINT " + sanitizedPKName
+	addStmt = "ALTER TABLE " + sanitizedTableName + " ADD CONSTRAINT " + sanitizedPKName +
+		" PRIMARY KEY (" + pgx.Identifier{schema.CqIDColumn.Name}.Sanitize() + ")"
+	return dropStmt, addStmt
 }
 
 func (c *Client) migrateToCQID(ctx context.Context, table *schema.Table, _ schema.Column) (err error) {
@@ -240,8 +265,10 @@ func (c *Client) migrateToCQID(ctx context.Context, table *schema.Table, _ schem
 	defer conn.Release()
 	tableName := table.Name
 	sanitizedTableName := pgx.Identifier{tableName}.Sanitize()
-	sanitizedPKName := pgx.Identifier{getPKName(&schema.Table{Name: tableName})}.Sanitize()
-
+	pkName, err := c.getPKName(ctx, tableName)
+	if err != nil {
+		return fmt.Errorf("failed to get primary key name: %w", err)
+	}
 	// start transaction
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{
 		IsoLevel: pgx.Serializable,
@@ -250,28 +277,17 @@ func (c *Client) migrateToCQID(ctx context.Context, table *schema.Table, _ schem
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	defer func() {
-		if err == nil {
-			err = tx.Commit(ctx)
-			if err != nil {
-				c.logger.Error().Err(err).Msg("failed to commit transaction")
-			}
-		}
-		if err != nil {
-			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
-				c.logger.Error().Err(rollbackErr).Str("table", tableName).Msg("Failed to rollback transaction")
-			}
-		}
-	}()
+	defer func() { err = c.finalizeTx(ctx, tx, tableName, err) }()
 
+	dropPKStmt, addPKStmt := cqIDConstraintSQLs(sanitizedTableName, pkName)
 	// Drop existing primary key
-	_, err = tx.Exec(ctx, "ALTER TABLE "+sanitizedTableName+" DROP CONSTRAINT "+sanitizedPKName)
+	_, err = tx.Exec(ctx, dropPKStmt)
 	if err != nil {
 		c.logger.Error().Err(err).Str("table", tableName).Msg("Failed to drop primary key")
 		return err
 	}
 	// Create new Primary Key with CQID
-	_, err = tx.Exec(ctx, "ALTER TABLE "+sanitizedTableName+" ADD CONSTRAINT "+sanitizedPKName+" PRIMARY KEY ("+pgx.Identifier{schema.CqIDColumn.Name}.Sanitize()+")")
+	_, err = tx.Exec(ctx, addPKStmt)
 	if err != nil {
 		c.logger.Error().Err(err).Str("table", tableName).Msg("Failed to create new primary key on _cq_id")
 		return err
@@ -280,16 +296,13 @@ func (c *Client) migrateToCQID(ctx context.Context, table *schema.Table, _ schem
 	// CockroachDB doesn't support dropping NOT NULL constraints in the same transaction as the primary key is changed
 	// So we have to alter the PK in one transaction and then drop the old NOT NULL constraints in another transaction
 	if c.pgType == pgTypeCockroachDB {
-		if err == nil {
-			err = tx.Commit(ctx)
-			if err != nil {
-				c.logger.Error().Err(err).Msg("failed to commit transaction")
-			}
-		}
-		if err != nil {
-			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
-				c.logger.Error().Err(rollbackErr).Str("table", tableName).Msg("Failed to rollback transaction")
-			}
+		// CockroachDB often reports DDL failures at COMMIT. Surface that error
+		// instead of overwriting it with the next BeginTx, and clear tx so the
+		// deferred finalizeTx doesn't roll back the already-closed transaction.
+		commitErr := c.finalizeTx(ctx, tx, tableName, nil)
+		tx = nil
+		if commitErr != nil {
+			return commitErr
 		}
 		tx, err = conn.BeginTx(ctx, pgx.TxOptions{
 			IsoLevel: pgx.Serializable,
@@ -318,11 +331,27 @@ func (c *Client) migrateToCQID(ctx context.Context, table *schema.Table, _ schem
 	return nil
 }
 
+func (c *Client) finalizeTx(ctx context.Context, tx pgx.Tx, tableName string, err error) error {
+	if tx == nil {
+		return err
+	}
+	if err == nil {
+		if err = tx.Commit(ctx); err != nil {
+			c.logger.Error().Err(err).Str("table", tableName).Msg("failed to commit transaction")
+		}
+		return err
+	}
+	if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+		c.logger.Error().Err(rollbackErr).Str("table", tableName).Msg("Failed to rollback transaction")
+	}
+	return err
+}
+
 func (c *Client) addColumn(ctx context.Context, tableName string, column schema.Column) error {
 	c.logger.Info().Str("table", tableName).Str("column", column.Name).Msg("Column doesn't exist, creating")
 	columnName := pgx.Identifier{column.Name}.Sanitize()
 	columnType := c.SchemaTypeToPg(column.Type)
-	sql := "alter table " + tableName + " add column " + columnName + " " + columnType
+	sql := "alter table " + pgx.Identifier{tableName}.Sanitize() + " add column " + columnName + " " + columnType
 	if _, err := c.conn.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("failed to add column %s on table %s: %w", column.Name, tableName, err)
 	}
@@ -358,17 +387,9 @@ func (c *Client) createTableIfNotExist(ctx context.Context, table *schema.Table)
 		}
 	}
 
-	pkConstraintName := getPKName(table)
-	c.pgTablesToPKConstraints[tableName] = &pkConstraintDetails{
-		name:    pkConstraintName,
-		columns: table.PrimaryKeys(),
-	}
-
 	if len(primaryKeys) > 0 {
 		// add composite PK constraint on primary key columns
-		sb.WriteString(", CONSTRAINT ")
-		sb.WriteString(pgx.Identifier{pkConstraintName}.Sanitize())
-		sb.WriteString(" PRIMARY KEY (")
+		sb.WriteString(", PRIMARY KEY (")
 		sb.WriteString(strings.Join(primaryKeys, ","))
 		sb.WriteString(")")
 	}
@@ -378,6 +399,83 @@ func (c *Client) createTableIfNotExist(ctx context.Context, table *schema.Table)
 		c.logger.Error().Err(err).Str("table", tableName).Str("query", sb.String()).Msg("Failed to create table")
 		return fmt.Errorf("failed to create table %s: %w"+sb.String(), tableName, err)
 	}
+	pkName, err := c.getPKName(ctx, tableName)
+	if err != nil {
+		return fmt.Errorf("failed to get primary key name: %w", err)
+	}
+	c.pgTablesToPKConstraints[tableName] = &pkConstraintDetails{
+		name:    pkName,
+		columns: table.PrimaryKeys(),
+	}
+
+	return c.createPgVectorTableIfNotExists(ctx, table)
+}
+
+func (c *Client) createPgVectorTableIfNotExists(ctx context.Context, table *schema.Table) error {
+	if !c.hasPgVectorConfig() {
+		return nil
+	}
+
+	// Find pgvector tableConfig for this source table
+	tableConfig := c.spec.GetPgVectorTableConfig(table.Name)
+	if tableConfig == nil {
+		return nil
+	}
+
+	// Ensure all metadata columns exist on base table; otherwise skip
+	baseCols := make([]schema.Column, 0, len(tableConfig.MetadataColumns))
+	for _, name := range tableConfig.MetadataColumns {
+		col := table.Columns.Get(name)
+		if col == nil {
+			return fmt.Errorf("cannot create pgvector table for %s: metadata column %s not found on base table", table.Name, name)
+		}
+		baseCols = append(baseCols, *col)
+	}
+
+	// Build column definitions using base column types and PKs
+	colDefs := make([]string, 0, len(baseCols)+1)
+	for _, col := range baseCols {
+		pgType := c.SchemaTypeToPg(col.Type)
+		colIdent := pgx.Identifier{col.Name}.Sanitize()
+		def := fmt.Sprintf("%s %s", colIdent, pgType)
+		if col.PrimaryKey {
+			def += " NOT NULL"
+		}
+		colDefs = append(colDefs, def)
+	}
+
+	// Required: Chunk column
+	colDefs = append(colDefs, "chunk text")
+	// Required: Embedding vector column
+	colDefs = append(colDefs, fmt.Sprintf("embedding vector(%d)", c.spec.PgVectorConfig.OpenAIEmbedding.Dimensions))
+
+	// Compose CREATE TABLE statement using configured target table name
+	embTableName := tableConfig.TargetTableName
+	parts := []string{
+		"CREATE TABLE IF NOT EXISTS ",
+		pgx.Identifier{embTableName}.Sanitize(),
+		" (",
+		strings.Join(colDefs, ","),
+		")",
+	}
+	sql := strings.Join(parts, "")
+
+	if _, err := c.conn.Exec(ctx, sql); err != nil {
+		c.logger.Error().Err(err).Str("table", embTableName).Str("query", sql).Msg("Failed to create pgvector embeddings table")
+		return fmt.Errorf("failed to create pgvector table %s: %w", embTableName, err)
+	}
+
+	// Create a non-unique index on _cq_id for faster lookups; idempotent with deterministic name
+	idxName := embTableName + "_cqid_idx"
+	if len(idxName) > 63 {
+		idxName = hashTableName(embTableName) + "_cqid_idx"
+	}
+	idxSQL := "CREATE INDEX IF NOT EXISTS " + pgx.Identifier{idxName}.Sanitize() + " ON " + pgx.Identifier{embTableName}.Sanitize() + "(" + pgx.Identifier{schema.CqIDColumn.Name}.Sanitize() + ")"
+	if _, err := c.conn.Exec(ctx, idxSQL); err != nil {
+		c.logger.Error().Err(err).Str("table", embTableName).Str("query", idxSQL).Msg("Failed to create _cq_id index on embeddings table")
+		return fmt.Errorf("failed to create _cq_id index on pgvector table %s: %w", embTableName, err)
+	}
+
 	return nil
 }
 
@@ -396,6 +494,73 @@ func (c *Client) removeUniqueConstraint(ctx context.Context, table *schema.Table
 	return nil
 }
 
-func getPKName(table *schema.Table) string {
-	return table.Name + "_cqpk"
+func (c *Client) getPKName(ctx context.Context, tableName string) (string, error) {
+	var pkConstraintName string
+	err := c.conn.QueryRow(ctx, `SELECT tco.constraint_name FROM information_schema.table_constraints tco JOIN information_schema.key_column_usage kcu
+     ON kcu.constraint_name = tco.constraint_name
+     WHERE tco.constraint_type = 'PRIMARY KEY'
+    AND kcu.table_name = $1`, tableName).Scan(&pkConstraintName)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return "", err
+	}
+
+	return pkConstraintName, nil
+}
+
+func (c *Client) createPerformanceIndexes(ctx context.Context, table *schema.Table) error {
+	columns := []string{"_cq_source_name", "_cq_sync_time"}
+
+	for _, col := range columns {
+		if table.Columns.Get(col) == nil {
+			c.logger.Debug().Msgf("no performance indexes created because %s column is not present", col)
+			return nil
+		}
+	}
+	// If there are no primary keys, this means that append mode is being used as the write mode as even when table has no PKs the _cq_id is added as a PK
+	if len(table.PrimaryKeys()) == 0 {
+		c.logger.Debug().Msg("indexes are not needed because no primary keys are present which means that `append` write mode is being used")
+		return nil
+	}
+
+	indexName := table.Name + "_cqpi"
+	if len(table.Name) > 58 && c.pgType != pgTypeCockroachDB {
+		indexName = hashTableName(table.Name) + "_cqpi"
+	}
+
+	sqlStatement := "CREATE INDEX IF NOT EXISTS " + pgx.Identifier{indexName}.Sanitize() + " ON " + pgx.Identifier{table.Name}.Sanitize() + "(" + pgx.Identifier{columns[0]}.Sanitize() + ", " + pgx.Identifier{columns[1]}.Sanitize() + ")"
+	_, err := c.conn.Exec(ctx, sqlStatement)
+	if err != nil {
+		return fmt.Errorf("failed to create performance index on table %s: %w", table.Name, err)
+	}
+
+	return nil
+}
+
+func (c *Client) ensurePgVectorExtensionInstalled(ctx context.Context) error {
+	if c.pgVectorExtensionInstalled {
+		return nil
+	}
+	if !c.spec.HasPgVectorConfig() {
+		return nil
+	}
+	if c.pgType != pgTypePostgreSQL {
+		return nil
+	}
+
+	if _, err := c.conn.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS vector"); err != nil {
+		return fmt.Errorf("failed to create pgvector extension: %w", err)
+	}
+
+	c.pgVectorExtensionInstalled = true
+	return nil
+}
+
+func hashTableName(input string) string {
+	// Max table name length
+	if len(input) > 63 {
+		input = input[:63]
+	}
+	hash := sha256.Sum256([]byte(input))
+	hashStr := hex.EncodeToString(hash[:])
+	return hashStr[:32]
 }

@@ -2,78 +2,162 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path"
+	"reflect"
 	"runtime"
 	"slices"
+	"strings"
+	gosync "sync"
 	"testing"
 
+	discoveryPb "github.com/cloudquery/plugin-pb-go/pb/discovery/v1"
+	pluginPb "github.com/cloudquery/plugin-pb-go/pb/plugin/v3"
+	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 )
 
 func TestSync(t *testing.T) {
 	configs := []struct {
 		name    string
 		config  string
-		err     string
+		shard   string
+		err     []string
 		summary []syncSummary
 	}{
-		{
-			name:   "sync_success_sourcev1_destv0",
-			config: "sync-success-sourcev1-destv0.yml",
-		},
 		{
 			name:   "multiple_sources",
 			config: "multiple-sources.yml",
 			summary: []syncSummary{
 				{
-					CliVersion:        "development",
+					CLIVersion:        "development",
 					DestinationErrors: 0,
 					DestinationName:   "test",
 					DestinationPath:   "cloudquery/test",
-					Resources:         12,
+					Resources:         13,
 					SourceName:        "test",
 					SourcePath:        "cloudquery/test",
+					SourceTables:      []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table":     1,
+						"test_sub_table":      10,
+						"test_testdata_table": 1,
+						"test_paid_table":     1,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
 				},
 				{
-					CliVersion:        "development",
+					CLIVersion:        "development",
 					DestinationErrors: 0,
 					DestinationName:   "test",
 					DestinationPath:   "cloudquery/test",
-					Resources:         12,
+					Resources:         13,
 					SourceName:        "test2",
 					SourcePath:        "cloudquery/test",
+					SourceTables:      []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table":     1,
+						"test_sub_table":      10,
+						"test_testdata_table": 1,
+						"test_paid_table":     1,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
 				},
 			},
 		},
 		{
-			name:   "multiple_destinations",
-			config: "multiple-destinations.yml",
+			name:   "multiple_destinations_multiple_batching_writers",
+			config: "multiple-destinations-multiple-batching-writers.yml",
 		},
 		{
 			name:   "multiple_sources_destinations",
 			config: "multiple-sources-destinations.yml",
 			summary: []syncSummary{
 				{
-					CliVersion:      "development",
+					CLIVersion:      "development",
 					DestinationName: "test-1",
 					DestinationPath: "cloudquery/test",
-					Resources:       12,
+					Resources:       13,
 					SourceName:      "test-1",
 					SourcePath:      "cloudquery/test",
+					SourceTables:    []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table":     1,
+						"test_sub_table":      10,
+						"test_testdata_table": 1,
+						"test_paid_table":     1,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
 				},
 				{
-					CliVersion:      "development",
+					CLIVersion:      "development",
 					DestinationName: "test-2",
 					DestinationPath: "cloudquery/test",
-					Resources:       12,
+					Resources:       13,
 					SourceName:      "test-2",
 					SourcePath:      "cloudquery/test",
+					SourceTables:    []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table":     1,
+						"test_sub_table":      10,
+						"test_testdata_table": 1,
+						"test_paid_table":     1,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
 				},
 			},
 		},
@@ -82,19 +166,176 @@ func TestSync(t *testing.T) {
 			config: "different-backend-from-destination.yml",
 			summary: []syncSummary{
 				{
-					CliVersion:      "development",
+					CLIVersion:      "development",
 					DestinationName: "test1",
 					DestinationPath: "cloudquery/test",
-					Resources:       12,
+					Resources:       13,
 					SourceName:      "test",
 					SourcePath:      "cloudquery/test",
+					SourceTables:    []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table":     1,
+						"test_sub_table":      10,
+						"test_testdata_table": 1,
+						"test_paid_table":     1,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+				},
+			},
+		},
+		{
+			name:   "with_sync_group_id",
+			config: "with-sync-group-id.yml",
+			summary: []syncSummary{
+				{
+					CLIVersion:      "development",
+					DestinationName: "test1",
+					DestinationPath: "cloudquery/test",
+					Resources:       13,
+					SourceName:      "test",
+					SourcePath:      "cloudquery/test",
+					SourceTables:    []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					SyncGroupID:     lo.ToPtr("sync_group_id_test"),
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table":     1,
+						"test_sub_table":      10,
+						"test_testdata_table": 1,
+						"test_paid_table":     1,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+				},
+			},
+		},
+		{
+			name:   "with_sync_group_id_and_shard",
+			config: "with-sync-group-id.yml",
+			shard:  "1/2",
+			summary: []syncSummary{
+				{
+					CLIVersion:      "development",
+					DestinationName: "test1",
+					DestinationPath: "cloudquery/test",
+					// Less resources due to sharding
+					Resources:    11,
+					SourceName:   "test",
+					SourcePath:   "cloudquery/test",
+					SourceTables: []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					SyncGroupID:  lo.ToPtr("sync_group_id_test"),
+					ShardNum:     lo.ToPtr(1),
+					ShardTotal:   lo.ToPtr(2),
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table":     1,
+						"test_sub_table":      10,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table":     0,
+						"test_sub_table":      0,
+						"test_testdata_table": 0,
+						"test_paid_table":     0,
+					},
 				},
 			},
 		},
 		{
 			name:   "should fail with missing path error when path is missing",
 			config: "sync-missing-path-error.yml",
-			err:    "Error: failed to validate destination test: path is required",
+			err:    []string{"Error: failed to validate destination test: path is required"},
+		},
+		{
+			name:   "source exits immediately",
+			config: "source-exits.yml",
+			err:    []string{"rpc error: code = Unavailable desc = error reading from server"}, // rpc disconnection
+		},
+		{
+			name:   "destination exits immediately",
+			config: "destination-exits.yml",
+			err:    []string{"write client returned error"},
+		},
+		{
+			name:   "transformer exits immediately",
+			config: "transformer-exits.yml",
+			err: []string{
+				"rpc error: code = Unavailable desc = error reading from server", // rpc disconnection
+				"failed to sync v3 source test: EOF",
+			},
+		},
+		{
+			name:   "transformer errors immediately",
+			config: "transformer-errors.yml",
+			err: []string{
+				"failed to sync v3 source test: rpc error: code = Internal desc = failing at the transformer stage according to spec requirements", // rpc disconnection
+				"failed to sync v3 source test: EOF",
+			},
+		},
+		{
+			name:   "transformer succeeds",
+			config: "transformer-succeeds.yml",
+		},
+		{
+			name:   "source errors immediately",
+			config: "source-errors.yml",
+			summary: []syncSummary{
+				{
+					CLIVersion:      "development",
+					Resources:       0,
+					SourceErrors:    1,
+					DestinationName: "test",
+					DestinationPath: "cloudquery/test",
+					SourceName:      "test",
+					SourcePath:      "cloudquery/test",
+					SourceTables:    []string{"test_some_table"},
+					ResourcesPerTable: map[string]uint64{
+						"test_some_table": 0,
+					},
+					ErrorsPerTable: map[string]uint64{
+						"test_some_table": 0,
+					},
+					DurationsPerTableMs: map[string]uint64{
+						"test_some_table": 0,
+					},
+				},
+			},
+		},
+		{
+			name:   "destination errors immediately",
+			config: "destination-errors.yml",
+			// TODO: https://github.com/cloudquery/cloudquery-issues/issues/2907
+			// this is a mitigation for flakiness that we want to fix later, so that we can have
+			// E2E tests right away.
+			err: []string{
+				"failed to sync v3 source test: write client returned error (insert)",
+				"failed to sync v3 source test: failed to send insert: EOF",
+			},
 		},
 	}
 	_, filename, _, _ := runtime.Caller(0)
@@ -114,18 +355,31 @@ func TestSync(t *testing.T) {
 				argList = append(argList, "--summary-location", summaryPath)
 			}
 
+			if tc.shard != "" {
+				argList = append(argList, "--shard", tc.shard)
+			}
+
 			cmd.SetArgs(argList)
 			err := cmd.Execute()
-			if tc.err != "" {
-				assert.Contains(t, err.Error(), tc.err)
+			if len(tc.err) > 0 {
+				if !anyErrorMatched(err, tc.err) {
+					t.Fatalf("expected error matching any of %v, got %v", tc.err, err)
+				}
 			} else {
 				assert.NoError(t, err)
 			}
 
 			if len(tc.summary) > 0 {
 				summaries := readSummaries(t, summaryPath)
-				// have to ignore SyncID because it's random and plugin versions since we update those frequently using an automated process
-				diff := cmp.Diff(tc.summary, summaries, cmpopts.IgnoreFields(syncSummary{}, "SyncID", "DestinationVersion", "SourceVersion"))
+				// Ignore random fields or fields that are updated over time
+				diff := cmp.Diff(tc.summary, summaries, cmpopts.IgnoreFields(syncSummary{}, "SyncID", "DestinationVersion", "SourceVersion", "SyncTime", "SyncDurationMs"))
+				for _, s := range summaries {
+					assert.NotEmpty(t, s.SyncID)
+					assert.NotEmpty(t, s.SyncTime)
+					assert.NotEmpty(t, s.DestinationVersion)
+					assert.NotEmpty(t, s.SourceVersion)
+					assert.Greater(t, s.SyncDurationMs, uint64(0))
+				}
 				require.Empty(t, diff, "unexpected summaries: %v", diff)
 			}
 
@@ -142,11 +396,250 @@ func TestSync(t *testing.T) {
 			cmd := NewCmdRoot()
 			cmd.SetArgs(append([]string{"sync", testConfig, "--no-migrate"}, testCommandArgs(t)...))
 			err := cmd.Execute()
-			if tc.err != "" {
-				require.Contains(t, err.Error(), tc.err)
+			if len(tc.err) > 0 {
+				if !anyErrorMatched(err, tc.err) {
+					t.Fatalf("expected error matching any of %v, got %v", tc.err, err)
+				}
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func anyErrorMatched(err error, expectedErrors []string) bool {
+	if err == nil {
+		return false
+	}
+	for _, e := range expectedErrors {
+		if strings.Contains(err.Error(), e) {
+			return true
+		}
+	}
+	return false
+}
+
+type syncSummaryTable struct {
+	CLIVersion          string   `json:"cli_version"`
+	DestinationErrors   uint64   `json:"destination_errors"`
+	DestinationName     string   `json:"destination_name"`
+	DestinationPath     string   `json:"destination_path"`
+	DestinationVersion  string   `json:"destination_version"`
+	DestinationWarnings uint64   `json:"destination_warnings"`
+	Resources           uint64   `json:"resources"`
+	SourceErrors        uint64   `json:"source_errors"`
+	SourcePath          string   `json:"source_path"`
+	SourceVersion       string   `json:"source_version"`
+	SourceWarnings      uint64   `json:"source_warnings"`
+	SourceTables        []string `json:"source_tables"`
+	SyncID              string   `json:"sync_id"`
+	ShardNum            *int     `json:"shard_num,omitempty"`
+	ShardTotal          *int     `json:"shard_total,omitempty"`
+	// Internal columns are prefixed with _cq_ in the destination schema (hence in the file destination JSON)
+	SyncGroupID *string `json:"_cq_sync_group_id,omitempty"`
+	SyncTime    string  `json:"_cq_sync_time"`
+	SourceName  string  `json:"_cq_source_name"`
+}
+
+func TestSyncWithSummaryTable(t *testing.T) {
+	configs := []struct {
+		name         string
+		config       string
+		shard        string
+		err          string
+		summaryTable []syncSummaryTable
+	}{
+		{
+			name:   "with-destination-summary",
+			config: "with-destination-summary.yml",
+			summaryTable: []syncSummaryTable{
+				{
+					CLIVersion:         "development",
+					DestinationErrors:  0,
+					DestinationName:    "test",
+					DestinationPath:    "cloudquery/file",
+					DestinationVersion: "v5.2.5",
+					Resources:          13,
+					SourceName:         "test",
+					SourcePath:         "cloudquery/test",
+					SourceVersion:      "v4.5.1",
+					SourceTables:       []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+				},
+			},
+		},
+		{
+			name:   "with-destination-summary-with-sync-group-id-and-shard",
+			config: "with-destination-summary-with-sync-group-id-and-shard.yml",
+			shard:  "1/2",
+			summaryTable: []syncSummaryTable{
+				{
+					CLIVersion:         "development",
+					DestinationErrors:  0,
+					DestinationName:    "test",
+					DestinationPath:    "cloudquery/file",
+					DestinationVersion: "v5.2.5",
+					// Less resources due to sharding
+					Resources:     11,
+					SourceName:    "test_1_2",
+					SourcePath:    "cloudquery/test",
+					SourceVersion: "v4.5.1",
+					SourceTables:  []string{"test_paid_table", "test_some_table", "test_sub_table", "test_testdata_table"},
+					SyncGroupID:   lo.ToPtr("sync_group_id_test"),
+					ShardNum:      lo.ToPtr(1),
+					ShardTotal:    lo.ToPtr(2),
+				},
+			},
+		},
+	}
+	_, filename, _, _ := runtime.Caller(0)
+	currentDir := path.Dir(filename)
+
+	for _, tc := range configs {
+		t.Run(tc.name, func(t *testing.T) {
+			testConfig := path.Join(currentDir, "testdata", tc.config)
+			cmd := NewCmdRoot()
+			baseArgs := testCommandArgs(t)
+			argList := append([]string{"sync", testConfig}, baseArgs...)
+
+			summaryTablePath := ""
+			if len(tc.summaryTable) > 0 {
+				datadir := t.TempDir()
+				summaryTablePath = path.Join(datadir, "/data/cloudquery_sync_summaries")
+				// this is the only way to inject the dynamic output path
+				os.Setenv("CQ_FILE_DESTINATION", path.Join(datadir, "/data/{{TABLE}}/{{UUID}}.{{FORMAT}}"))
+			}
+			if tc.shard != "" {
+				argList = append(argList, "--shard", tc.shard)
+			}
+			cmd.SetArgs(argList)
+			err := cmd.Execute()
+			if tc.err != "" {
+				assert.Contains(t, err.Error(), tc.err)
+			} else {
+				assert.NoError(t, err)
+			}
+			summaries := []syncSummaryTable{}
+			// find all json files in the data directory
+			files, err := os.ReadDir(summaryTablePath)
+			if err != nil {
+				t.Fatalf("failed to read directory %v: %v", summaryTablePath, err)
+			}
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+				b, err := os.ReadFile(path.Join(summaryTablePath, file.Name()))
+				if err != nil {
+					t.Fatalf("failed to read file %v: %v", file.Name(), err)
+				}
+				var v syncSummaryTable
+				assert.NoError(t, json.Unmarshal(b, &v))
+				summaries = append(summaries, v)
+			}
+
+			// Ignore random fields or fields that are updated over time
+			diff := cmp.Diff(tc.summaryTable, summaries, cmpopts.IgnoreFields(syncSummaryTable{}, "SyncID", "SyncTime", "DestinationVersion", "SourceVersion"))
+			for _, s := range summaries {
+				assert.NotEmpty(t, s.SyncID)
+				assert.NotEmpty(t, s.SyncTime)
+				assert.NotEmpty(t, s.DestinationVersion)
+				assert.NotEmpty(t, s.SourceVersion)
+			}
+
+			require.Empty(t, diff, "unexpected summaries: %v", diff)
+
+			// have to ignore SyncID because it's random and plugin versions since we update those frequently using an automated process
+			// also ignore SyncTime because it's a timestamp
+			for _, s := range summaries {
+				assert.NotEmpty(t, s.SyncID)
+			}
+		})
+	}
+}
+
+type recordingDestinationServer struct {
+	pluginPb.UnimplementedPluginServer
+	discoveryPb.UnimplementedDiscoveryServer
+	mu                gosync.Mutex
+	migratedTables    []string
+	deleteStaleTables []string
+}
+
+func (*recordingDestinationServer) GetVersions(context.Context, *discoveryPb.GetVersions_Request) (*discoveryPb.GetVersions_Response, error) {
+	return &discoveryPb.GetVersions_Response{Versions: []int32{3}}, nil
+}
+
+func (*recordingDestinationServer) Init(context.Context, *pluginPb.Init_Request) (*pluginPb.Init_Response, error) {
+	return &pluginPb.Init_Response{}, nil
+}
+
+func (*recordingDestinationServer) Close(context.Context, *pluginPb.Close_Request) (*pluginPb.Close_Response, error) {
+	return &pluginPb.Close_Response{}, nil
+}
+
+func (d *recordingDestinationServer) Write(stream grpc.ClientStreamingServer[pluginPb.Write_Request, pluginPb.Write_Response]) error {
+	for {
+		req, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return stream.SendAndClose(&pluginPb.Write_Response{})
+		}
+		if err != nil {
+			return err
+		}
+		if err := d.record(req); err != nil {
+			return err
+		}
+	}
+}
+
+func (d *recordingDestinationServer) record(req *pluginPb.Write_Request) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	switch m := req.Message.(type) {
+	case *pluginPb.Write_Request_MigrateTable:
+		sc, err := pluginPb.NewSchemaFromBytes(m.MigrateTable.Table)
+		if err != nil {
+			return err
+		}
+		tableName, _ := sc.Metadata().GetValue(schema.MetadataTableName)
+		d.migratedTables = append(d.migratedTables, tableName)
+	case *pluginPb.Write_Request_Delete:
+		d.deleteStaleTables = append(d.deleteStaleTables, m.Delete.TableName)
+	}
+	return nil
+}
+
+func TestSyncTableNameChanges(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+	testConfig := path.Join(path.Dir(filename), "testdata", "transformer-change-table-names.yml")
+
+	tests := []struct {
+		name               string
+		extraArgs          []string
+		wantMigratedTables []string
+	}{
+		{name: "migrate", wantMigratedTables: []string{"cq_sync_test_some_table"}},
+		{name: "no_migrate", extraArgs: []string{"--no-migrate"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			destination := &recordingDestinationServer{}
+			t.Setenv("CQ_TEST_DESTINATION_ADDRESS", startFakePluginServer(t, destination))
+
+			summaryPath := path.Join(t.TempDir(), "cloudquery-summary.jsonl")
+			argList := append([]string{"sync", testConfig, "--summary-location", summaryPath}, testCommandArgs(t)...)
+			cmd := NewCmdRoot()
+			cmd.SetArgs(append(argList, tc.extraArgs...))
+			require.NoError(t, cmd.Execute())
+
+			summaries := readSummaries(t, summaryPath)
+			require.Len(t, summaries, 1)
+			require.Equal(t, []string{"cq_sync_test_some_table"}, summaries[0].SourceTables)
+
+			destination.mu.Lock()
+			defer destination.mu.Unlock()
+			require.Equal(t, tc.wantMigratedTables, destination.migratedTables)
+			require.Equal(t, []string{"cq_sync_test_some_table"}, destination.deleteStaleTables)
 		})
 	}
 }
@@ -154,7 +647,7 @@ func TestSync(t *testing.T) {
 func TestSyncCqDir(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	currentDir := path.Dir(filename)
-	testConfig := path.Join(currentDir, "testdata", "sync-success-sourcev1-destv0.yml")
+	testConfig := path.Join(currentDir, "testdata", "multiple-sources.yml")
 
 	cmd := NewCmdRoot()
 	baseArgs := testCommandArgs(t)
@@ -192,6 +685,63 @@ func TestFindMaxCommonVersion(t *testing.T) {
 	}
 }
 
+type protocolVersionsServer struct {
+	pluginPb.UnimplementedPluginServer
+	discoveryPb.UnimplementedDiscoveryServer
+	versions []int32
+}
+
+func (s *protocolVersionsServer) GetVersions(context.Context, *discoveryPb.GetVersions_Request) (*discoveryPb.GetVersions_Response, error) {
+	return &discoveryPb.GetVersions_Response{Versions: s.versions}, nil
+}
+
+func TestUnsupportedSourceProtocolVersions(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+	testConfig := path.Join(path.Dir(filename), "testdata", "source-protocol-versions.yml")
+
+	tests := []struct {
+		name    string
+		command string
+		version int32
+	}{
+		{name: "sync_v1", command: "sync", version: 1},
+		{name: "sync_v2", command: "sync", version: 2},
+		{name: "migrate_v1", command: "migrate", version: 1},
+		{name: "migrate_v2", command: "migrate", version: 2},
+		{name: "tables_v1", command: "tables", version: 1},
+		{name: "tables_v2", command: "tables", version: 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("CQ_TEST_SOURCE_ADDRESS", startFakePluginServer(t, &protocolVersionsServer{versions: []int32{tc.version}}))
+			t.Setenv("CQ_TEST_DESTINATION_ADDRESS", startFakePluginServer(t, &protocolVersionsServer{versions: []int32{3}}))
+
+			cmd := NewCmdRoot()
+			cmd.SetArgs(append([]string{tc.command, testConfig}, testCommandArgs(t)...))
+			require.EqualError(t, cmd.Execute(), errUnsupportedSourceProtocol("test", int(tc.version)).Error())
+		})
+	}
+}
+
+func TestUnsupportedSourceProtocolVersionsFailBeforeAnySourceRuns(t *testing.T) {
+	_, filename, _, _ := runtime.Caller(0)
+	testConfig := path.Join(path.Dir(filename), "testdata", "source-protocol-versions-mixed.yml")
+	want := errors.Join(errUnsupportedSourceProtocol("test-v2", 2), errUnsupportedSourceProtocol("test-v1", 1)).Error()
+
+	for _, command := range []string{"sync", "migrate", "tables"} {
+		t.Run(command, func(t *testing.T) {
+			t.Setenv("CQ_TEST_SOURCE_V3_ADDRESS", startFakePluginServer(t, &protocolVersionsServer{versions: []int32{3}}))
+			t.Setenv("CQ_TEST_SOURCE_V2_ADDRESS", startFakePluginServer(t, &protocolVersionsServer{versions: []int32{2}}))
+			t.Setenv("CQ_TEST_SOURCE_V1_ADDRESS", startFakePluginServer(t, &protocolVersionsServer{versions: []int32{1}}))
+			t.Setenv("CQ_TEST_DESTINATION_ADDRESS", startFakePluginServer(t, &protocolVersionsServer{versions: []int32{3}}))
+
+			cmd := NewCmdRoot()
+			cmd.SetArgs(append([]string{command, testConfig}, testCommandArgs(t)...))
+			require.EqualError(t, cmd.Execute(), want)
+		})
+	}
+}
+
 func TestSync_IsolatedPluginEnvironmentsInCloud(t *testing.T) {
 	configs := []struct {
 		name   string
@@ -206,8 +756,8 @@ func TestSync_IsolatedPluginEnvironmentsInCloud(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	currentDir := path.Dir(filename)
 
-	t.Setenv("CLOUDQUERY_API_KEY", "cqsr_123")
-	t.Setenv("_CQ_TEAM_NAME", "test_team")
+	t.Setenv("CQ_CLOUD", "1")
+	t.Setenv("_CQ_TEAM_NAME", "cloudquery")
 	t.Setenv("_CQ_SYNC_NAME", "test_sync")
 	t.Setenv("_CQ_SYNC_RUN_ID", uuid.Must(uuid.NewUUID()).String())
 	t.Setenv("__SOURCE_TEST__TEST_KEY", "test_value")
@@ -225,6 +775,119 @@ func TestSync_IsolatedPluginEnvironmentsInCloud(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		})
+	}
+}
+
+func TestSync_FilterPluginEnv(t *testing.T) {
+	cases := []struct {
+		Name        string
+		TotalEnv    []string
+		FilteredEnv []string
+	}{
+		{
+			Name: "double_api_keys",
+			TotalEnv: []string{
+				"CLOUDQUERY_API_KEY=outer-key",
+				"__SOURCE_TEST__TEST_KEY=test_value",
+				"__SOURCE_TEST__CLOUDQUERY_API_KEY=inner-key",
+				"NOT_TEST_ENV=should_not_be_visible_to_plugin",
+			},
+			FilteredEnv: []string{
+				"TEST_KEY=test_value",
+				"CLOUDQUERY_API_KEY=inner-key",
+			},
+		},
+		{
+			Name: "single_api_key",
+			TotalEnv: []string{
+				"CLOUDQUERY_API_KEY=outer-key",
+				"__SOURCE_TEST__TEST_KEY=test_value",
+				"NOT_TEST_ENV=should_not_be_visible_to_plugin",
+			},
+			FilteredEnv: []string{
+				"TEST_KEY=test_value",
+				"CLOUDQUERY_API_KEY=outer-key",
+			},
+		},
+		{
+			Name: "global_aws_values_get_overwritten",
+			TotalEnv: []string{
+				"AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name",
+				"__SOURCE_TEST__AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name-2",
+			},
+			FilteredEnv: []string{
+				"AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name-2",
+			},
+		},
+		{
+			Name: "aws_values_use_global_defaults",
+			TotalEnv: []string{
+				"AWS_REGION=us-east-1",
+				"AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name",
+				"__SOURCE_TEST__AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name-2",
+			},
+			FilteredEnv: []string{
+				"AWS_REGION=us-east-1",
+				"AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name-2",
+			},
+		},
+		{
+			Name: "aws_values_use_specifics_if_no_defaults",
+			TotalEnv: []string{
+				"__SOURCE_TEST__AWS_REGION=us-east-1",
+				"AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name",
+				"__SOURCE_TEST__AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name-2",
+			},
+			FilteredEnv: []string{
+				"AWS_REGION=us-east-1",
+				"AWS_ROLE_ARN=arn:aws:iam::123456789012:role/role-name-2",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			filteredEnv := filterPluginEnv(tc.TotalEnv, "test", "source")
+			slices.Sort(filteredEnv)
+			slices.Sort(tc.FilteredEnv)
+			require.Equal(t, tc.FilteredEnv, filteredEnv)
+		})
+	}
+}
+
+func TestSyncSummaryPascalCase(t *testing.T) {
+	summaryTable, err := generateSummaryTable()
+	require.NoError(t, err)
+
+	cols := make(map[string]struct{}, len(summaryTable.Columns))
+	for _, col := range summaryTable.Columns {
+		cols[col.Name] = struct{}{}
+	}
+
+	summType := reflect.TypeOf(syncSummary{})
+	jsonTags := make(map[string]struct{})
+	for i := 0; i < summType.NumField(); i++ {
+		field := summType.Field(i)
+		jsonTag := field.Tag.Get("json")
+		if jsonTag == "" {
+			// If no json tag, use field name (lowercase)
+			jsonTag = strings.ToLower(field.Name)
+		} else {
+			if commaIdx := strings.Index(jsonTag, ","); commaIdx != -1 {
+				jsonTag = jsonTag[:commaIdx]
+			}
+			if jsonTag == "-" {
+				continue
+			}
+		}
+
+		jsonTags[jsonTag] = struct{}{}
+	}
+	delete(jsonTags, "sync_group_id")
+	delete(jsonTags, "sync_time")
+
+	if diff := cmp.Diff(cols, jsonTags); diff != "" {
+		t.Fatalf("syncSummary JSON tags don't match field names (-want +got):\n%s", diff)
 	}
 }
 

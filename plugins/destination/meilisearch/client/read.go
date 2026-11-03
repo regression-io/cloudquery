@@ -1,22 +1,21 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/meilisearch/meilisearch-go"
 )
 
-func (c *Client) Read(_ context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(_ context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	sc := table.ToArrowSchema()
-	index, err := c.Meilisearch.GetIndex(table.Name)
-	if err != nil {
-		return err
-	}
+	index := c.Meilisearch.Index(table.Name)
 
 	req := &meilisearch.SearchRequest{
 		HitsPerPage: 100, // default = 1, we want more
@@ -30,9 +29,15 @@ func (c *Client) Read(_ context.Context, table *schema.Table, res chan<- arrow.R
 		}
 
 		for _, hit := range resp.Hits {
-			m, ok := hit.(map[string]any)
-			if !ok {
-				return fmt.Errorf("unsupported format for doc: %T", hit)
+			m := make(map[string]any)
+			for k, v := range hit {
+				var val any
+				dec := json.NewDecoder(bytes.NewReader(v))
+				dec.UseNumber()
+				if err := dec.Decode(&val); err != nil {
+					return fmt.Errorf("failed to unmarshal hit value for key %q: %w", k, err)
+				}
+				m[k] = val
 			}
 			row, err := docToRecord(sc, m)
 			if err != nil {
@@ -50,7 +55,7 @@ func (c *Client) Read(_ context.Context, table *schema.Table, res chan<- arrow.R
 	return nil
 }
 
-func docToRecord(sc *arrow.Schema, doc map[string]any) (arrow.Record, error) {
+func docToRecord(sc *arrow.Schema, doc map[string]any) (arrow.RecordBatch, error) {
 	builder := array.NewRecordBuilder(memory.DefaultAllocator, sc)
 
 	for i, builder := range builder.Fields() {
@@ -59,5 +64,5 @@ func docToRecord(sc *arrow.Schema, doc map[string]any) (arrow.Record, error) {
 		}
 	}
 
-	return builder.NewRecord(), nil
+	return builder.NewRecordBatch(), nil
 }

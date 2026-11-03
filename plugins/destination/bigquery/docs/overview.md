@@ -26,7 +26,7 @@ Streaming is not available for the [Google Cloud free tier](https://cloud.google
 
 :configuration
 
-The BigQuery destination utilizes batching, and supports [`batch_size`](/docs/reference/destination-spec#batch_size) and [`batch_size_bytes`](/docs/reference/destination-spec#batch_size_bytes).
+The BigQuery destination utilizes batching, and supports [`batch_size`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size) and [`batch_size_bytes`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size_bytes).
 
 Note that the BigQuery plugin only supports the `append` write mode. 
 
@@ -59,11 +59,16 @@ This is the top-level spec used by the BigQuery destination plugin.
 
   The time partitioning to use when creating tables. The partition time column used will always be `_cq_sync_time` so that all rows for a sync run will be partitioned on the hour/day the sync started.
 
+- `time_partitioning_expiration` (`duration`) (optional)
+
+  The time after which the partition will be automatically deleted. The duration is specified in seconds, minutes or hours, e.g. `3600s`, `60m`, `24h`, `720h`.
+  This option is only valid if `time_partitioning` is set a value other than `none`.
+
 - `service_account_key_json` (`string`) (optional) (default: empty).
 
   GCP service account key content.
   This allows for using different service accounts for the GCP source and BigQuery destination.
-  If using service account keys, it is best to use [environment or file variable substitution](/docs/advanced-topics/environment-variable-substitution).
+  If using service account keys, it is best to use [environment or file variable substitution](https://www.cloudquery.io/docs/cli/managing-cloudquery/environment-variables).
 
 - `endpoint` (`string`) (optional)
 
@@ -80,6 +85,50 @@ This is the top-level spec used by the BigQuery destination plugin.
 - `batch_timeout` (`duration`) (optional) (default: `10s` (10 seconds))
 
   Maximum interval between batch writes.
+
+- `text_embeddings` (`object`) (optional)
+
+  Configuration for creating text embeddings for certain tables using a Vertex AI model.
+
+  A remote model must be attached to the dataset before using this feature, and its name supplied in the `remote_model_name` field.
+  
+  - `remote_model_name` (`string`) (required)
+
+    The name of the remote model to use for text embeddings.
+
+  - `tables` (`array`) (required)
+
+    The tables to create text embeddings for. Each one must have its own configuration.
+
+    - `source_table_name` (`string`) (required)
+      
+      The name of the source table to create text embeddings for.
+
+    - `target_table_name` (`string`) (required)
+      
+      The name of the target table in which to store the embeddings.
+
+    - `embed_columns` (`array`) (required)
+
+      The columns to use as content for the embeddings generation function. They will be concatenated in the order they are provided.
+
+    - `metadata_columns` (`array`) (optional)
+      
+      Which columns to copy as-is from the source table to the target table. `_cq_id` is always included.
+
+  - `text_splitter` (`object`) (optional)
+
+    The text splitter configuration to use for text embeddings. Currently only `recursive_text` is supported.
+
+    - `recursive_text` (`object`) (required)
+
+      - `chunk_size` (`integer`) (required)
+
+        The size of the chunks in characters (not tokens). Defaults to `1000`.
+
+      - `chunk_overlap` (`integer`) (required)
+      
+        The overlap between chunks in characters (not tokens). Defaults to `100`.
 
 ## Underlying library
 

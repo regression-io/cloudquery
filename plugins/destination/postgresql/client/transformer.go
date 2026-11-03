@@ -1,13 +1,16 @@
 package client
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/cloudquery/plugin-sdk/v4/types"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -20,8 +23,10 @@ func stripNulls(s string) string {
 // In some far-fetched case a JSON like this may happen, but we ignore this for now: `{"key\u0000": "v1", "key\u0000\u0000": "v2"}`
 func stripNullsFromMarshalledJson(inputJsonMarshaled []byte) []byte {
 	var m any
-	err := json.Unmarshal(inputJsonMarshaled, &m)
-	if err != nil {
+	// UseNumber keeps int64/uint64 values that exceed float64 precision intact
+	dec := json.NewDecoder(bytes.NewReader(inputJsonMarshaled))
+	dec.UseNumber()
+	if err := dec.Decode(&m); err != nil {
 		return inputJsonMarshaled
 	}
 
@@ -190,7 +195,7 @@ func (c *Client) transformArr(arr arrow.Array) []any {
 	return pgArr
 }
 
-func (c *Client) transformValues(r arrow.Record) [][]any {
+func (c *Client) transformValues(r arrow.RecordBatch) [][]any {
 	results := make([][]any, r.NumRows())
 
 	for i := range results {
@@ -205,4 +210,28 @@ func (c *Client) transformValues(r arrow.Record) [][]any {
 		}
 	}
 	return results
+}
+
+func (*Client) getCQIDs(r arrow.RecordBatch) ([]uuid.UUID, error) {
+	cqIDColIndex, err := getColumnIndexWithName(r, CQIDColumn)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]uuid.UUID, r.NumRows())
+	for i := range int(r.NumRows()) {
+		results[i], err = uuid.Parse(r.Column(cqIDColIndex).ValueStr(i))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return results, nil
+}
+
+func getColumnIndexWithName(r arrow.RecordBatch, name string) (int, error) {
+	for i := range int(r.NumCols()) {
+		if r.Schema().Field(i).Name == name {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf("column %s not found", name) // should never happen
 }

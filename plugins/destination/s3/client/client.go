@@ -5,22 +5,32 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
+	tmtypes "github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/cloudquery/cloudquery/plugins/destination/s3/client/spec"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/cloudquery/cloudquery/plugins/destination/s3/v7/client/spec"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/writers/streamingbatchwriter"
 
 	"github.com/cloudquery/filetypes/v4"
 	"github.com/rs/zerolog"
 )
+
+var errTestWriteFailed = errors.New("failed to write test file to S3")
+var errRetrievingCredentials = errors.New("error retrieving AWS credentials (see logs for details). Please verify your credentials and try again")
 
 type Client struct {
 	plugin.UnimplementedSource
@@ -32,11 +42,11 @@ type Client struct {
 	*filetypes.Client
 	writer *streamingbatchwriter.StreamingBatchWriter
 
-	s3Client   *s3.Client
-	uploader   *manager.Uploader
-	downloader *manager.Downloader
+	s3Client        *s3.Client
+	transferManager *transfermanager.Client
 
-	initializedTables map[string]string
+	initializedTablesLock sync.Mutex
+	initializedTables     map[string]string
 }
 
 func New(ctx context.Context, logger zerolog.Logger, s []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
@@ -44,8 +54,9 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, opts plugin.NewCl
 		logger:            logger.With().Str("module", "s3").Logger(),
 		syncID:            opts.InvocationID,
 		initializedTables: make(map[string]string),
+		spec:              &spec.Spec{},
 	}
-	if opts.NoConnection {
+	if opts.NoConnection && isEmptySpec(s) {
 		return c, nil
 	}
 
@@ -57,22 +68,68 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, opts plugin.NewCl
 	}
 	c.spec.SetDefaults()
 
-	if c.syncID == "" && c.spec.PathContainsSyncID() {
-		return nil, fmt.Errorf("path contains {{SYNC_ID}}. Upgrade your CLI to use this path variable")
-	}
-
 	filetypesClient, err := filetypes.NewClient(&c.spec.FileSpec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create filetypes client: %w", err)
 	}
 	c.Client = filetypesClient
 
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithDefaultRegion("us-east-1"))
+	if opts.NoConnection {
+		return c, nil
+	}
+
+	if c.syncID == "" && c.spec.PathContainsSyncID() {
+		return nil, errors.New("path contains {{SYNC_ID}}. Upgrade your CLI to use this path variable")
+	}
+
+	configFns := []func(*config.LoadOptions) error{
+		config.WithDefaultRegion("us-east-1"),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard(func(so *retry.StandardOptions) {
+				so.MaxAttempts = *c.spec.MaxRetries
+				so.MaxBackoff = time.Duration(*c.spec.MaxBackoff) * time.Second
+				so.RateLimiter = ratelimit.None
+			})
+		}),
+	}
+
+	if c.spec.Credentials != nil && c.spec.Credentials.LocalProfile != "" {
+		configFns = append(configFns, config.WithSharedConfigProfile(c.spec.Credentials.LocalProfile))
+	}
+
+	cfg, err := config.LoadDefaultConfig(ctx, configFns...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load AWS SDK config: %w", err)
 	}
 
 	cfg.Region = c.spec.Region
+	if c.spec.AWSDebug {
+		cfg.ClientLogMode |= aws.LogRequestWithBody | aws.LogResponseWithBody
+	}
+
+	if c.spec.Credentials != nil && c.spec.Credentials.RoleARN != "" {
+		opts := make([]func(*stscreds.AssumeRoleOptions), 0, 1)
+
+		// default is 15 minutes. All roles allow for a minimum of 1 hour, some can be configured for up to 12 hours
+		opts = append(opts, func(opts *stscreds.AssumeRoleOptions) {
+			opts.Duration = 1 * time.Hour
+		})
+
+		if c.spec.Credentials.ExternalID != "" {
+			opts = append(opts, func(opts *stscreds.AssumeRoleOptions) {
+				opts.ExternalID = &c.spec.Credentials.ExternalID
+			})
+		}
+		if c.spec.Credentials.RoleSessionName != "" {
+			opts = append(opts, func(opts *stscreds.AssumeRoleOptions) {
+				opts.RoleSessionName = c.spec.Credentials.RoleSessionName
+			})
+		}
+		stsClient := sts.NewFromConfig(cfg)
+		provider := stscreds.NewAssumeRoleProvider(stsClient, c.spec.Credentials.RoleARN, opts...)
+
+		cfg.Credentials = aws.NewCredentialsCache(provider, credentialsCacheOptionsFunc)
+	}
 
 	cfg.HTTPClient = awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
 		if tr.TLSClientConfig == nil {
@@ -87,14 +144,23 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, opts plugin.NewCl
 		}
 		o.UsePathStyle = c.spec.UsePathStyle
 	})
-	c.uploader = manager.NewUploader(c.s3Client)
-	c.downloader = manager.NewDownloader(c.s3Client)
+
+	// Test out retrieving credentials
+	if _, err := cfg.Credentials.Retrieve(ctx); err != nil {
+		logger.Error().Err(err).Msg("error retrieving credentials")
+		return nil, errRetrievingCredentials
+	}
+
+	// Initialize the transfer manager
+	c.transferManager = transfermanager.New(c.s3Client, func(o *transfermanager.Options) {
+		o.PartSizeBytes = *c.spec.PartSize
+	})
 
 	if *c.spec.TestWrite {
 		// we want to run this test because we want it to fail early if the bucket is not accessible
 		timeNow := time.Now().UTC()
 
-		params := &s3.PutObjectInput{
+		params := &transfermanager.UploadObjectInput{
 			Bucket: aws.String(c.spec.Bucket),
 			Key:    aws.String(c.spec.ReplacePathVariables("TEST_TABLE", "TEST_UUID", timeNow, c.syncID)),
 			Body:   bytes.NewReader([]byte("")),
@@ -102,12 +168,12 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, opts plugin.NewCl
 
 		sseConfiguration := c.spec.ServerSideEncryptionConfiguration
 		if sseConfiguration != nil {
-			params.SSEKMSKeyId = &sseConfiguration.SSEKMSKeyId
-			params.ServerSideEncryption = sseConfiguration.ServerSideEncryption
+			params.SSEKMSKeyID = &sseConfiguration.SSEKMSKeyId
+			params.ServerSideEncryption = tmtypes.ServerSideEncryption(sseConfiguration.ServerSideEncryption)
 		}
 
-		if _, err := c.uploader.Upload(ctx, params); err != nil {
-			return nil, fmt.Errorf("failed to write test file to S3: %w", err)
+		if _, err := c.transferManager.UploadObject(ctx, params); err != nil {
+			return nil, errors.Join(errTestWriteFailed, err)
 		}
 	}
 
@@ -124,6 +190,35 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, opts plugin.NewCl
 	return c, nil
 }
 
+func isEmptySpec(s []byte) bool {
+	trimmed := bytes.TrimSpace(s)
+	return len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null"))
+}
+
+// SupportsFlush reports whether flushes can end objects early. Without {{UUID}} in the path, every object of a table
+// gets the same key, so a flush would make the next object overwrite the uploaded one.
+func (c *Client) SupportsFlush() bool {
+	return c.spec.PathContainsUUID()
+}
+
 func (c *Client) Close(ctx context.Context) error {
+	if c.writer == nil {
+		return nil
+	}
 	return c.writer.Close(ctx)
+}
+
+func credentialsCacheOptionsFunc(options *aws.CredentialsCacheOptions) {
+	// ExpiryWindow will allow the credentials to trigger refreshing prior to
+	// the credentials actually expiring. This is beneficial so race conditions
+	// with expiring credentials do not cause requests to fail unexpectedly
+	// due to ExpiredToken exceptions.
+	//
+	// An ExpiryWindow of 5 minute would cause calls to IsExpired() to return true
+	// 5 minutes before the credentials are actually expired. This can cause an
+	// increased number of requests to refresh the credentials to occur. We balance this with jitter.
+	options.ExpiryWindow = 5 * time.Minute
+	// Jitter is added to avoid the thundering herd problem of many refresh requests
+	// happening all at once.
+	options.ExpiryWindowJitterFrac = 0.5
 }

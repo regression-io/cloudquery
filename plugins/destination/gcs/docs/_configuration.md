@@ -8,14 +8,19 @@ spec:
   registry: "cloudquery"
   version: "VERSION_DESTINATION_GCS"
   write_mode: "append"
+  send_sync_summary: true
   spec:
     bucket: "bucket_name"
     path: "path/to/files/{{TABLE}}/{{UUID}}.{{FORMAT}}"
     format: "parquet" # options: parquet, json, csv
     format_spec:
-      # CSV-specific parameters:
+      # CSV specific parameters:
       # delimiter: ","
       # skip_header: false
+      # Parquet specific parameters:
+      # version: "v2Latest"
+      # root_repetition: "repeated"
+      # max_row_group_length: 1048576 # 1024 * 1024 rows
 
     # Optional parameters
     # compression: "" # options: gzip
@@ -25,4 +30,4 @@ spec:
     # batch_timeout: 30s
 ```
 
-Note that the GCS plugin only supports `append` `write_mode`. The (top level) spec section is described in the [Destination Spec Reference](/docs/reference/destination-spec).
+Note that the GCS plugin only supports `append` `write_mode`. The (top level) spec section is described in the [Destination Spec Reference](https://www.cloudquery.io/docs/cli/integrations/destinations#complete-destination-spec-reference).

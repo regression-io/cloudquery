@@ -7,11 +7,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	cqtypes "github.com/cloudquery/plugin-sdk/v4/types"
-	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
+	"github.com/elastic/go-elasticsearch/v9/typedapi/types"
 	"golang.org/x/exp/maps"
 )
 
@@ -77,11 +77,16 @@ func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTab
 	return nil
 }
 
-func (c *Client) getIndexTemplate(table *schema.Table) (string, error) {
+func indexProperties(table *schema.Table) map[string]types.Property {
 	properties := map[string]types.Property{}
 	for _, col := range table.Columns {
 		properties[col.Name] = arrowTypeToElasticsearchProperty(col.Type)
 	}
+	return properties
+}
+
+func (c *Client) getIndexTemplate(table *schema.Table) (string, error) {
+	properties := indexProperties(table)
 	tmp := types.IndexTemplate{
 		AllowAutoCreate: nil,
 		ComposedOf:      []string{},

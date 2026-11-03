@@ -2,16 +2,18 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/client/spec"
-	"github.com/cloudquery/plugin-sdk/v4/message"
+	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/v8/client/spec"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/writers/batchwriter"
 	"github.com/goccy/go-json"
 	"github.com/rs/zerolog"
+	slogzerolog "github.com/samber/slog-zerolog/v2"
 )
 
 type Client struct {
@@ -22,17 +24,15 @@ type Client struct {
 	logger zerolog.Logger
 	writer *batchwriter.BatchWriter
 	plugin.UnimplementedSource
-	batchwriter.UnimplementedDeleteRecord
 }
 
 var _ plugin.Client = (*Client)(nil)
 var _ batchwriter.Client = (*Client)(nil)
 
-func (*Client) DeleteStale(context.Context, message.WriteDeleteStales) error {
-	return plugin.ErrNotImplemented
-}
-
 func (c *Client) Close(ctx context.Context) error {
+	if c.conn == nil {
+		return nil
+	}
 	if err := c.writer.Close(ctx); err != nil {
 		_ = c.conn.Close()
 		return err
@@ -40,14 +40,22 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.conn.Close()
 }
 
-func New(_ context.Context, logger zerolog.Logger, specBytes []byte, _ plugin.NewClientOptions) (plugin.Client, error) {
+var errInvalidSpec = errors.New("invalid spec")
+
+func New(_ context.Context, logger zerolog.Logger, specBytes []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
+	if opts.NoConnection && len(specBytes) == 0 {
+		specBytes = []byte("{}")
+	}
 	var s spec.Spec
 	if err := json.Unmarshal(specBytes, &s); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal spec: %w", err)
+		return nil, errors.Join(errInvalidSpec, err)
 	}
 	s.SetDefaults()
 	if err := s.Validate(); err != nil {
-		return nil, err
+		return nil, errors.Join(errInvalidSpec, err)
+	}
+	if opts.NoConnection {
+		return &Client{spec: &s, logger: logger.With().Str("module", "dest-clickhouse").Logger()}, nil
 	}
 
 	options, err := s.Options()
@@ -60,7 +68,7 @@ func New(_ context.Context, logger zerolog.Logger, specBytes []byte, _ plugin.Ne
 		Str("database", options.Auth.Database).
 		Str("cluster", s.Cluster).
 		Logger()
-	options.Debugf = l.Printf
+	options.Logger = slog.New(slogzerolog.Option{Logger: &l}.NewZerologHandler())
 
 	conn, err := clickhouse.Open(options)
 	if err != nil {
@@ -72,7 +80,7 @@ func New(_ context.Context, logger zerolog.Logger, specBytes []byte, _ plugin.Ne
 		return nil, fmt.Errorf("failed to verify server version %w", err)
 	}
 
-	minVer := proto.Version{Major: 22, Minor: 1, Patch: 2}
+	minVer := proto.Version{Major: 24, Minor: 8, Patch: 1}
 	if !proto.CheckMinVersion(minVer, ver.Version) {
 		defer conn.Close()
 		return nil, fmt.Errorf("server version is %s, minimum version supported is %s", ver.Version, minVer)

@@ -7,11 +7,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/filetypes/v4/types"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/google/uuid"
 )
+
+var syncAfterWrite bool // used in testing
 
 func (c *Client) WriteTable(_ context.Context, msgs <-chan *message.WriteInsert) error {
 	var (
@@ -38,8 +40,11 @@ func (c *Client) WriteTable(_ context.Context, msgs <-chan *message.WriteInsert)
 			}
 		}
 
-		if err := h.WriteContent([]arrow.Record{msg.Record}); err != nil {
+		if err := h.WriteContent([]arrow.RecordBatch{msg.Record}); err != nil {
 			return err
+		}
+		if syncAfterWrite {
+			_ = f.Sync()
 		}
 	}
 

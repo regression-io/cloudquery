@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,11 +16,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v7"
 	"github.com/cloudquery/cloudquery-api-go/auth"
 	"github.com/cloudquery/cloudquery-api-go/config"
-	"github.com/cloudquery/cloudquery/cli/internal/env"
-	"github.com/cloudquery/cloudquery/cli/internal/team"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/analytics"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/env"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/platform"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/team"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -40,6 +43,9 @@ cloudquery login
 
 # Log in to a specific team
 cloudquery login --team my-team
+
+# Log in directly to a CloudQuery Platform tenant
+cloudquery login --host my-tenant.mycloudquery.com
 `
 )
 
@@ -66,7 +72,78 @@ func newCmdLogin() *cobra.Command {
 		},
 	}
 	loginCmd.Flags().StringP("team", "t", "", "Team to login to. Specify the team name, e.g. 'my-team' (not the display name)")
+	loginCmd.Flags().String("host", "", "CloudQuery Platform tenant host to log in to directly, e.g. 'acme.mycloudquery.com', skipping the email-based routing")
 	return loginCmd
+}
+
+const successClosePath = "/success-close"
+
+var trustedTenantDomains = []string{"cloudquery.io", "mycloudquery.com"}
+
+func callbackHandler(accountsURL, tenantHost string, onToken func(string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		token := query.Get("token")
+		onToken(token)
+
+		if platform.IsPlatformToken(token) {
+			origin := query.Get("origin")
+			if target := tenantSuccessURL(origin, tenantHost); target != "" {
+				http.Redirect(w, r, target, http.StatusSeeOther)
+				return
+			}
+			if origin != "" {
+				fmt.Fprintf(os.Stderr, "warning: ignoring untrusted success page origin %q from the login callback\n", origin)
+			}
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			_, _ = io.WriteString(w, "You are signed in. You can close this window.\n")
+			return
+		}
+
+		http.Redirect(w, r, accountsURL+successClosePath, http.StatusSeeOther)
+	}
+}
+
+func tenantSuccessURL(origin, tenantHost string) string {
+	u, err := neturl.Parse(origin)
+	if err != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return ""
+	}
+	isLocal := u.Scheme == "http" && isLoopbackHost(u.Hostname())
+	isTrustedTenant := u.Scheme == "https" && isTrustedTenantHost(u.Host, tenantHost)
+	if !isLocal && !isTrustedTenant {
+		return ""
+	}
+
+	return u.String() + successClosePath
+}
+
+func isTrustedTenantHost(host, tenantHost string) bool {
+	host = strings.ToLower(host)
+	if tenantHost != "" && host == strings.ToLower(tenantHost) {
+		return true
+	}
+	for _, domain := range trustedTenantDomains {
+		if strings.HasSuffix(host, "."+domain) {
+			return true
+		}
+	}
+	return false
+}
+
+func tenantHostFromFlag(host string) string {
+	if !strings.Contains(host, "://") {
+		return host
+	}
+	u, err := neturl.Parse(host)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
+func isLoopbackHost(host string) bool {
+	return host == "localhost" || net.ParseIP(host).IsLoopback()
 }
 
 func waitForServer(ctx context.Context, url string) error {
@@ -78,18 +155,19 @@ func waitForServer(ctx context.Context, url string) error {
 		return err
 	}
 
-	return backoff.Retry(func() error {
+	_, retryErr := backoff.Retry(ctx, func() (any, error) {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer resp.Body.Close()
 		_, _ = io.Copy(io.Discard, resp.Body)
 		if resp.StatusCode == http.StatusOK {
-			return nil
+			return nil, nil
 		}
-		return fmt.Errorf("failed to connect to local server. error code: %d", resp.StatusCode)
-	}, backoff.WithContext(backoff.NewConstantBackOff(100*time.Millisecond), ctx))
+		return nil, fmt.Errorf("failed to connect to local server. error code: %d", resp.StatusCode)
+	}, backoff.WithBackOff(backoff.NewConstantBackOff(100*time.Millisecond)))
+	return retryErr
 }
 
 func runLogin(ctx context.Context, cmd *cobra.Command) (err error) {
@@ -99,16 +177,16 @@ func runLogin(ctx context.Context, cmd *cobra.Command) (err error) {
 	refreshToken := ""
 	gotToken := make(chan struct{})
 	var once gosync.Once
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+	host, _ := cmd.Flags().GetString("host")
+	mux.HandleFunc("/callback", callbackHandler(accountsURL, tenantHostFromFlag(host), func(token string) {
 		once.Do(func() {
-			refreshToken = r.URL.Query().Get("token")
+			refreshToken = token
 			close(gotToken)
 		})
-		http.Redirect(w, r, accountsURL+"/success-close", http.StatusSeeOther)
-	})
+	}))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "OK")
+		fmt.Fprint(w, "OK")
 	})
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -133,8 +211,11 @@ func runLogin(ctx context.Context, cmd *cobra.Command) (err error) {
 	}
 
 	url := accountsURL + "?returnTo=" + localServerURL + "/callback"
+	if host != "" {
+		url = tenantLoginURL(host, localServerURL+"/callback")
+	}
 	if err := browser.OpenURL(url); err != nil {
-		fmt.Printf("Failed to open browser. Please open %s manually and paste the token below:\n", accountsURL)
+		fmt.Printf("Failed to open browser. Please open %s manually and paste the token below:\n", url)
 
 		stdinFd := int(os.Stdin.Fd())
 		if !term.IsTerminal(stdinFd) {
@@ -171,25 +252,43 @@ func runLogin(ctx context.Context, cmd *cobra.Command) (err error) {
 
 	fmt.Println("Authenticating...")
 
-	err = auth.SaveRefreshToken(refreshToken)
-	if err != nil {
-		return fmt.Errorf("failed to save refresh token: %w", err)
-	}
+	if platform.IsPlatformToken(refreshToken) {
+		tokenTeam, err := platformLoginTeam(cmd, refreshToken)
+		if err != nil {
+			return err
+		}
+		if err := platform.SavePlatformToken(refreshToken); err != nil {
+			return fmt.Errorf("failed to save platform token: %w", err)
+		}
+		_ = auth.RemoveRefreshToken()
+		if err := setTeamOnPlatformLogin(cmd, tokenTeam); err != nil {
+			return err
+		}
+	} else {
+		if err := platform.RemovePlatformToken(); err != nil {
+			return fmt.Errorf("failed to remove previous platform token: %w", err)
+		}
 
-	tc := auth.NewTokenClient()
-	token, err := tc.GetToken()
-	if err != nil {
-		return fmt.Errorf("failed to get auth token: %w", err)
-	}
+		err = auth.SaveRefreshToken(refreshToken)
+		if err != nil {
+			return fmt.Errorf("failed to save refresh token: %w", err)
+		}
 
-	if err = setTeamOnLogin(ctx, cmd, token.Value); err != nil {
-		return fmt.Errorf("failed to set current team on login: %w", err)
+		tc := auth.NewTokenClient()
+		token, err := tc.GetToken()
+		if err != nil {
+			return fmt.Errorf("failed to get auth token: %w", err)
+		}
+
+		if err = setTeamOnLogin(ctx, cmd, token.Value); err != nil {
+			return fmt.Errorf("failed to set current team on login: %w", err)
+		}
 	}
 
 	// Create a context for the shutdown with a 15-second timeout.
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctxWithTimeout); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
@@ -197,7 +296,48 @@ func runLogin(ctx context.Context, cmd *cobra.Command) (err error) {
 		return serverErr
 	}
 
-	cmd.Println("CLI successfully authenticated.")
+	analytics.TrackLoginSuccess(ctx, invocationUUID.UUID)
+
+	cmd.Println("✅ CLI successfully authenticated.")
+	warnEnvCredentialsOverrideLogin(cmd)
+	cmd.Println("Next, initialize your sync configuration:")
+	cmd.Println(bold.Sprint("cloudquery init"))
+
+	return nil
+}
+
+func tenantLoginURL(host, callbackURL string) string {
+	tenantURL := host
+	if !strings.Contains(tenantURL, "://") {
+		tenantURL = "https://" + tenantURL
+	}
+	return tenantURL + "/auth/login?cliReturnTo=" + neturl.QueryEscape(callbackURL)
+}
+
+func platformLoginTeam(cmd *cobra.Command, token string) (string, error) {
+	tokenTeam := platform.TeamFromToken(token)
+
+	if cmd.Flags().Changed("team") {
+		flagTeam := cmd.Flag("team").Value.String()
+		if flagTeam != tokenTeam {
+			return "", fmt.Errorf("the platform token belongs to team %q, not %q", tokenTeam, flagTeam)
+		}
+	}
+
+	return tokenTeam, nil
+}
+
+func setTeamOnPlatformLogin(cmd *cobra.Command, tokenTeam string) error {
+	if err := config.SetValue("team", tokenTeam); err != nil {
+		return fmt.Errorf("failed to set team: %w", err)
+	}
+	if err := config.SetValue("team_internal", "false"); err != nil {
+		return fmt.Errorf("failed to set team metadata: %w", err)
+	}
+	if tokenTeam == "" {
+		return nil
+	}
+	cmd.Printf("Your current team is set to %s.\n", tokenTeam)
 
 	return nil
 }
@@ -217,13 +357,17 @@ func setTeamOnLogin(ctx context.Context, cmd *cobra.Command, token string) error
 	if cmd.Flags().Changed("team") {
 		// don't care about the current cached config value as the user explicitly passes the `team` flag
 		currentTeam := cmd.Flag("team").Value.String()
-		err = cl.ValidateTeamAgainstTeams(currentTeam, teams)
+		foundTeam, err := cl.FindTeam(teams, currentTeam)
 		if err != nil {
 			return fmt.Errorf("failed to validate team: %w", err)
 		}
 		err = config.SetValue("team", currentTeam)
 		if err != nil {
 			return fmt.Errorf("failed to set team: %w", err)
+		}
+		err = config.SetValue("team_internal", strconv.FormatBool(foundTeam.Internal))
+		if err != nil {
+			return fmt.Errorf("failed to set team metadata: %w", err)
 		}
 		return nil
 	}
@@ -232,10 +376,16 @@ func setTeamOnLogin(ctx context.Context, cmd *cobra.Command, token string) error
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to get current team: %w", err)
 	}
-
-	if len(currentTeam) > 0 && cl.ValidateTeamAgainstTeams(currentTeam, teams) == nil {
+	foundTeam, err := cl.FindTeam(teams, currentTeam)
+	if len(currentTeam) > 0 && err == nil {
 		// The selected team is available to the user, so we're just using it
-		cmd.Printf("Your current team is set to %s.\n", currentTeam)
+		cmd.Printf("Your current team is set to %s.\n", foundTeam.Name)
+
+		// Make sure we update the internal flag in case it changed
+		err = config.SetValue("team_internal", strconv.FormatBool(foundTeam.Internal))
+		if err != nil {
+			return fmt.Errorf("failed to set team metadata: %w", err)
+		}
 		return nil
 	}
 
@@ -256,16 +406,27 @@ func setTeamOnLogin(ctx context.Context, cmd *cobra.Command, token string) error
 		}
 
 	case 1:
-		currentTeam = teams[0]
+		currentTeam = teams[0].Name
 		err = config.SetValue("team", currentTeam)
 		if err != nil {
 			return fmt.Errorf("failed to set team: %w", err)
 		}
+
+		teamInternalStr := "false"
+		if teams[0].Internal {
+			teamInternalStr = "true"
+		}
+
+		err = config.SetValue("team_internal", teamInternalStr)
+		if err != nil {
+			return fmt.Errorf("failed to set team metadata: %w", err)
+		}
+
 		cmd.Printf("Your current team is set to %s.\n", currentTeam)
 
 	default:
 		cmd.Printf("Your current team is not set.\n\n")
-		cmd.Printf("Teams available to you: " + strings.Join(teams, ", ") + "\n\n")
+		cmd.Printf("Teams available to you: %s\n\n", team.Names(teams))
 		cmd.Printf("To set your current team, run `cloudquery switch <team>`\n\n")
 		// we don't fail here immediately, as there are some additional commands the user can run in this state
 	}

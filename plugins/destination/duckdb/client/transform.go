@@ -1,18 +1,23 @@
 package client
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/types"
 )
 
-func transformRecord(sc *arrow.Schema, rec arrow.Record) arrow.Record {
+func transformRecord(sc *arrow.Schema, rec arrow.RecordBatch) arrow.RecordBatch {
 	cols := make([]arrow.Array, rec.NumCols())
 	for i := 0; i < int(rec.NumCols()); i++ {
-		cols[i] = transformArray(rec.Column(i))
+		col := rec.Column(i)
+		if _, isList := col.DataType().(arrow.ListLikeType); isList && sc.Field(i).Type.ID() == arrow.STRING {
+			cols[i] = transformToStringArray(col)
+			continue
+		}
+		cols[i] = transformArray(col)
 	}
-	return array.NewRecord(sc, cols, rec.NumRows())
+	return array.NewRecordBatch(sc, cols, rec.NumRows())
 }
 
 func transformArray(arr arrow.Array) arrow.Array {

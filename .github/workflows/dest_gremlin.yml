@@ -16,6 +16,9 @@ on:
       - "plugins/destination/gremlin/**"
       - ".github/workflows/dest_gremlin.yml"
 
+permissions:
+  contents: read
+
 jobs:
   plugins-destination-gremlin:
     timeout-minutes: 30
@@ -24,29 +27,30 @@ jobs:
     defaults:
       run:
         working-directory: ./plugins/destination/gremlin
-    services:
-      gremlin-server:
-        image: tinkerpop/gremlin-server:3.7.1
-        ports:
-          - 8182:8182
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
       - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+        id: setup-go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: plugins/destination/gremlin/go.mod
-          cache: true
-          cache-dependency-path: plugins/destination/gremlin/go.sum
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+          cache: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
-          version: v1.55.2
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-destination-gremlin-${{ hashFiles('plugins/destination/gremlin/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-destination-gremlin-
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
           working-directory: plugins/destination/gremlin
           args: "--config ../../.golangci.yml"
-          skip-pkg-cache: true
-          skip-build-cache: true
       - name: gen
         if: github.event_name == 'pull_request'
         run: make gen
@@ -57,4 +61,3 @@ jobs:
         run: go build .
       - name: Test Gremlin
         run: make test
-  

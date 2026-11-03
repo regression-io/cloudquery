@@ -14,6 +14,7 @@ bin/
 .terraform*
 *.log
 .cq
+.env
 database-data/*
 dest/*
 outfile
@@ -28,8 +29,12 @@ go.work.sum.backup
 cli/examples
 cli/cli
 __tables.json
+!cloud-config-ui/src/data/__tables.json
 __debug_bin
 .vercel
 venv
 __pycache__
 cli/cloudquery-sync-summary.json
+__debug_bin*
+coverage.out.tmp
+coverage.out

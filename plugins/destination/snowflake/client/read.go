@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
 
@@ -36,7 +36,7 @@ func (c *Client) reverseTransform(f arrow.Field, bldr array.Builder, val any) er
 			b.Append(boolVal)
 			return nil
 		}
-		return b.AppendValueFromString(val.(string))
+		return appendFromString(b, val.(string))
 	case *array.Int8Builder:
 		u, err := strconv.ParseInt(val.(string), 10, 8)
 		if err != nil {
@@ -158,14 +158,14 @@ func (c *Client) reverseTransform(f arrow.Field, bldr array.Builder, val any) er
 		if !ok {
 			return fmt.Errorf("unsupported type %T with builder %T", val, bldr)
 		}
-		if err := bldr.AppendValueFromString(v); err != nil {
+		if err := appendFromString(bldr, v); err != nil {
 			return fmt.Errorf("failed to AppendValueFromString %s: %w", v, err)
 		}
 	}
 	return nil
 }
 
-func (c *Client) reverseTransformer(table *schema.Table, values []any) (arrow.Record, error) {
+func (c *Client) reverseTransformer(table *schema.Table, values []any) (arrow.RecordBatch, error) {
 	sc := table.ToArrowSchema()
 	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
 	for i, f := range sc.Fields() {
@@ -173,12 +173,12 @@ func (c *Client) reverseTransformer(table *schema.Table, values []any) (arrow.Re
 			return nil, fmt.Errorf("failed to transform field %s: %w", f.Name, err)
 		}
 	}
-	rec := bldr.NewRecord()
+	rec := bldr.NewRecordBatch()
 	bldr.Release()
 	return rec, nil
 }
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	tableName := table.Name
 	colNames := make([]string, 0, len(table.Columns))
 	for _, col := range table.Columns {

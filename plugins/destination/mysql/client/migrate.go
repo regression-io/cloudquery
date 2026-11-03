@@ -3,9 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
@@ -40,24 +39,22 @@ func (*Client) normalizeColumn(col schema.Column) schema.Column {
 	})
 }
 
-func (c *Client) nonAutoMigratableTables(tables schema.Tables, mysqlTables schema.Tables) ([]string, [][]schema.TableColumnChange) {
-	var result []string
-	var tableChanges [][]schema.TableColumnChange
+func (*Client) nonAutoMigratableTables(tables schema.Tables, mysqlTables schema.Tables) map[string][]schema.TableColumnChange {
+	result := make(map[string][]schema.TableColumnChange)
 	for _, t := range tables {
 		mysqlTable := mysqlTables.Get(t.Name)
 		if mysqlTable == nil {
 			continue
 		}
 		changes := mysqlTable.GetChanges(t)
-		if !c.canAutoMigrate(changes) {
-			result = append(result, t.Name)
-			tableChanges = append(tableChanges, changes)
+		if !canAutoMigrate(changes) {
+			result[t.Name] = changes
 		}
 	}
-	return result, tableChanges
+	return result
 }
 
-func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
+func canAutoMigrate(changes []schema.TableColumnChange) bool {
 	for _, change := range changes {
 		switch change.Type {
 		case schema.TableColumnChangeTypeAdd:
@@ -69,7 +66,7 @@ func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
 				return false
 			}
 		case schema.TableColumnChangeTypeRemoveUniqueConstraint:
-			return true
+			continue
 		default:
 			return false
 		}
@@ -78,8 +75,13 @@ func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
 }
 func (c *Client) autoMigrateTable(ctx context.Context, table *schema.Table, changes []schema.TableColumnChange) error {
 	for _, change := range changes {
-		if change.Type == schema.TableColumnChangeTypeAdd {
+		switch change.Type {
+		case schema.TableColumnChangeTypeAdd:
 			if err := c.addColumn(ctx, table, table.Columns.Get(change.ColumnName)); err != nil {
+				return err
+			}
+		case schema.TableColumnChangeTypeRemoveUniqueConstraint:
+			if err := c.dropIndex(ctx, table, table.Columns.Get(change.ColumnName)); err != nil {
 				return err
 			}
 		}
@@ -115,9 +117,9 @@ func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTab
 		}
 	}
 
-	nonAutoMigrtableTables, changes := c.nonAutoMigratableTables(normalizedTablesSafeMode, mysqlTables)
-	if len(nonAutoMigrtableTables) > 0 {
-		return fmt.Errorf("tables %s with changes %v require migration. Migrate manually or consider using 'migrate_mode: forced'", strings.Join(nonAutoMigrtableTables, ","), changes)
+	nonAutoMigratableTables := c.nonAutoMigratableTables(normalizedTablesSafeMode, mysqlTables)
+	if len(nonAutoMigratableTables) > 0 {
+		return fmt.Errorf("\nCan't migrate tables automatically, migrate manually or consider using 'migrate_mode: forced'. Non auto migratable tables changes:\n\n%s", schema.GetChangesSummary(nonAutoMigratableTables))
 	}
 
 	for _, table := range normalizedTables {
@@ -134,7 +136,7 @@ func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTab
 			}
 		} else {
 			changes := table.GetChanges(mysql)
-			if c.canAutoMigrate(changes) {
+			if canAutoMigrate(changes) {
 				c.logger.Info().Str("table", table.Name).Msg("Table exists, auto-migrating")
 				if err := c.autoMigrateTable(ctx, table, changes); err != nil {
 					return err

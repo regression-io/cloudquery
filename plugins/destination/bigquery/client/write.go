@@ -1,17 +1,17 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/types"
-	"google.golang.org/api/googleapi"
 )
 
 const (
@@ -19,12 +19,12 @@ const (
 )
 
 type item struct {
-	cols map[string]bigquery.Value
+	Cols map[string]bigquery.Value `json:"cols"`
 }
 
 func (i *item) Save() (map[string]bigquery.Value, string, error) {
 	// we're not doing de-dup at the moment
-	return i.cols, bigquery.NoDedupeID, nil
+	return i.Cols, bigquery.NoDedupeID, nil
 }
 
 func (c *Client) Write(ctx context.Context, res <-chan message.WriteMessage) error {
@@ -37,19 +37,36 @@ func (c *Client) Write(ctx context.Context, res <-chan message.WriteMessage) err
 	return nil
 }
 
+func (c *Client) serializeBatchForError(batch []*item) string {
+	buffer := new(bytes.Buffer)
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(batch)
+	if err != nil {
+		c.logger.Info().Err(err).Msg("Failed to serialize batch for error")
+		return ""
+	}
+	const maxBufferSize = 1000
+	if buffer.Len() > maxBufferSize {
+		buffer.Truncate(maxBufferSize)
+		buffer.WriteString("... (truncated)")
+	}
+	return buffer.String()
+}
+
 func (c *Client) WriteTableBatch(ctx context.Context, name string, msgs message.WriteInserts) error {
-	inserter := c.client.Dataset(c.spec.DatasetID).Table(name).Inserter()
+	inserter := c.client.DatasetInProject(c.spec.ProjectID, c.spec.DatasetID).Table(name).Inserter()
 	inserter.IgnoreUnknownValues = true
 	inserter.SkipInvalidRows = false
 	batch := make([]*item, 0)
 	for _, msg := range msgs {
 		rec := msg.Record
 		for i := 0; i < int(rec.NumRows()); i++ {
-			saver := &item{cols: make(map[string]bigquery.Value, rec.NumCols())}
+			saver := &item{Cols: make(map[string]bigquery.Value, rec.NumCols())}
 			for n, col := range rec.Columns() {
 				if col.IsValid(i) {
 					// save some bandwidth by not sending nil values
-					saver.cols[rec.ColumnName(n)] = getValueForBigQuery(col, i)
+					saver.Cols[rec.ColumnName(n)] = getValueForBigQuery(col, i)
 				}
 			}
 			batch = append(batch, saver)
@@ -61,16 +78,23 @@ func (c *Client) WriteTableBatch(ctx context.Context, name string, msgs message.
 
 	for err := inserter.Put(timeoutCtx, batch); err != nil; err = inserter.Put(timeoutCtx, batch) {
 		// check if bigquery error is 404 (table does not exist yet), then wait a bit and retry until it does exist
-		if e, ok := err.(*googleapi.Error); ok && e.Code == 404 {
+		if isAPINotFoundError(err) {
 			// retry
 			c.logger.Info().Str("table", name).Msg("Table does not exist yet, waiting for it to be created before retrying write")
 			time.Sleep(1 * time.Second)
 			continue
 		}
+		if isEntityTooLargeError(err) {
+			batchData := c.serializeBatchForError(batch)
+			if batchData == "" {
+				return fmt.Errorf("batch too big to be inserted into BigQuery table %s. See limitations here https://cloud.google.com/bigquery/quotas#streaming_inserts", name)
+			}
+			return fmt.Errorf("batch too big to be inserted into BigQuery table %s. See limitations here https://cloud.google.com/bigquery/quotas#streaming_inserts. Batch data: %s", name, batchData)
+		}
 		return fmt.Errorf("failed to put item into BigQuery table %s: %w", name, err)
 	}
 
-	return nil
+	return c.embeddingsClient.WriteTableBatch(ctx, name, msgs)
 }
 
 func getValueForBigQuery(col arrow.Array, i int) any {
@@ -93,9 +117,6 @@ func getValueForBigQuery(col arrow.Array, i int) any {
 		elems := make([]any, 0, slc.Len())
 		for j := 0; j < slc.Len(); j++ {
 			if slc.IsNull(j) {
-				continue
-			}
-			if slc.IsNull(j) {
 				// LIMITATION: BigQuery does not support null values in repeated columns.
 				// Therefore, these get stripped out here. In the future, perhaps we should support
 				// an option to use JSON instead of repeated columns for users who need to preserve
@@ -112,18 +133,7 @@ func getValueForBigQuery(col arrow.Array, i int) any {
 	case *array.Duration:
 		return v.Value(i)
 	case *array.Timestamp:
-		unit := v.DataType().(*arrow.TimestampType).Unit
-		switch unit {
-		case arrow.Nanosecond:
-			t := v.Value(i).ToTime(arrow.Nanosecond)
-			format := "2006-01-02 15:04:05.999999"
-			return TimestampNanoseconds{
-				Timestamp:   t.Format(format),
-				Nanoseconds: t.Nanosecond() % 1000,
-			}
-		default:
-			return v.GetOneForMarshal(i)
-		}
+		return v.Value(i).ToTime(v.DataType().(*arrow.TimestampType).Unit)
 	case *types.JSONArray:
 		return v.ValueStr(i)
 	}

@@ -2,56 +2,56 @@
 <h1 align="center"><img alt="cloudquery logo" width=75% src="https://github.com/cloudquery/cloudquery/raw/main/cli/docs/images/logo.png"/></h1>
 <!-- markdownlint-enable MD033 -->
 
-[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)  [![Go Report Card](https://goreportcard.com/badge/github.com/cloudquery/cloudquery)](https://goreportcard.com/report/github.com/cloudquery/cloudquery)  [![CLI Workflow](https://github.com/cloudquery/cloudquery/actions/workflows/cli.yml/badge.svg)](https://github.com/cloudquery/cloudquery/actions/workflows/cli.yml)  
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0) [![Go Report Card](https://goreportcard.com/badge/github.com/cloudquery/cloudquery)](https://goreportcard.com/report/github.com/cloudquery/cloudquery) [![CLI Workflow](https://github.com/cloudquery/cloudquery/actions/workflows/cli.yml/badge.svg)](https://github.com/cloudquery/cloudquery/actions/workflows/cli.yml)
 
-CloudQuery is an [open-source](https://github.com/cloudquery/cloudquery),
-high-performance data integration framework built for developers, with support for a wide range of plugins.
+<p align="center"><strong>CloudOps, without the chaos</strong></p>
 
-CloudQuery extracts, transforms, and loads configuration from cloud APIs, files or databases to
-variety of supported destinations such as databases, data lakes, or streaming platforms
-for further analysis.
+[CloudQuery](https://cloudquery.io) is a cloud asset inventory built for platform teams. Sync your cloud infrastructure metadata into your data warehouse, powering insights and automation. Unify data and provide context across AWS, Azure, GCP, and 70+ cloud and SaaS sources such as Wiz, Finout, and GitHub.
 
-### Installation
+## Installation
 
-See the **[Quickstart guide](https://www.cloudquery.io/docs/quickstart)** for instructions how to start syncing data with CloudQuery.
+```bash
+brew install cloudquery/tap/cloudquery
+```
 
-## Why CloudQuery?
+Check out the [quickstart guide](https://www.cloudquery.io/docs/cli/getting-started) for install guides for Linux and Windows and for step-by-step instructions on completing your first sync with CloudQuery.
 
-- **Blazing fast**: CloudQuery is optimized for performance, utilizing the excellent Go concurrency model with light-weight goroutines.
-- **Deploy anywhere**: CloudQuery plugins are single-binary executables and can be deployed and run anywhere.
-- **Open source**: Language-agnostic, extensible plugin architecture using [Apache Arrow](https://arrow.apache.org/): develop your own plugins in Go, Python, Java or JavaScript using the [CloudQuery SDK](https://docs.cloudquery.io/docs/developers/creating-new-plugin).
-- **Pre-built queries**: CloudQuery maintains a number of out-of-the-box security and compliance policies for cloud infrastructure.
-- **Unlimited scale**: CloudQuery plugins are stateless and can be scaled horizontally on any platform, such as EC2, Kubernetes, batch jobs or any other compute.
+## **Why CloudQuery?**
 
-## Use Cases
+- **Specialized plugin coverage** - Support for cloud infrastructure, security, and FinOps sources with normalization, rate limit handling, and more.
+- **Normalized data** - 
+- **Queryable with SQL** - No more writing scripts to hit poorly documented APIs: CloudQuery makes it easy to unify and make your cloud asset data accessible.
+- **Integrate with anything** - Turn your cloud data into useful signals by connecting with BI tools, Slack alerts, Jira ticketing, and more.
+- **Fast, powerful syncs** - Move large volumes of data with high performance and fine-grained control, powered by Apache Arrow.
+- **Runs on your infrastructure** - Your cloud data never touches CloudQuery's servers. Full privacy, built for regulated, secure, and performance-critical environments.
+- **Composable and flexible** - Use the languages, destinations, and orchestrators you want. CloudQuery is built to fit into your stack, not the other way around.
+- **Built for developers** - Code-first, extensible plugins, multi-language, open plugin system, no lock-in. Write it, extend it, ship it.
 
-- **Cloud Security Posture Management**: Use as an open source CSPM solution to monitor and enforce security policies across your cloud infrastructure for AWS, GCP, Azure and many more.
-- **Cloud Asset Inventory**: First-class support for major cloud infrastructure providers such as AWS, GCP and Azure allow you to collect and unify configuration data.
-- **Cloud FinOps**: Collect and unify billing data from cloud providers to drive financial accountability.
-- **ELT Platform**: With hundreds of plugin combinations and extensible architecture, CloudQuery can be used for reliable, efficient export from any API to any database, or from one database to another.
-- **Attack Surface Management**: [Open source solution](https://www.cloudquery.io/how-to-guides/attack-surface-management-with-graph) for continuous discovery, analysis and monitoring of potential attack vectors that make up your organization's attack surface.
-- **Eliminate data silos**: Eliminate data silos across your organization, unifying data between security, infrastructure, marketing and finance teams.
+## **Use Cases**
+
+- [**Cloud Asset Inventory**](https://www.cloudquery.io/blog/what-is-a-cloud-asset-inventory): First-class support for [all major cloud infrastructure providers](https://www.cloudquery.io/hub/plugins/source?categories=cloud-infrastructure) such as [AWS](https://www.cloudquery.io/blog/building-cloud-asset-inventory-with-aws), [GCP](https://www.cloudquery.io/blog/building-cloud-asset-inventory-with-gcp), and [Azure](https://www.cloudquery.io/blog/how-to-build-a-cloud-asset-inventory-for-azure) allows you to [collect and unify your cloud configuration data](https://www.cloudquery.io/blog/how-to-build-a-multi-cloud-asset-inventory).
+- [**Cloud Security Posture Management (CSPM)**](https://www.cloudquery.io/blog/how-to-build-a-cspm-with-grafana-and-cloudquery): Use as a [CSPM](https://www.cloudquery.io/blog/how-to-build-a-cspm-with-grafana-and-cloudquery) solution to monitor and enforce security policies across your cloud infrastructure for [AWS](https://www.cloudquery.io/hub/plugins/source/cloudquery/aws/latest/docs), [GCP](https://www.cloudquery.io/hub/plugins/source/cloudquery/gcp/latest/docs), [Azure](https://www.cloudquery.io/hub/plugins/source/cloudquery/azure/latest/docs) and many more.
+- **Cloud FinOps**: Collect and unify billing data from cloud providers to save money on your cloud expenses.
 
 ### Links
 
 - Homepage: [https://www.cloudquery.io](https://www.cloudquery.io)
-- Documentation: [https://www.cloudquery.io/docs](https://www.cloudquery.io/docs)
-- Integrations: [https://hub.cloudquery.io](https://hub.cloudquery.io)
-- Releases: [https://github.com/cloudquery/cloudquery/releases](https://github.com/cloudquery/cloudquery/releases)
+- Documentation: [https://www.cloudquery.io/docs/](https://www.cloudquery.io/docs)
+- Integrations: [https://www.cloudquery.io/hub/plugins/source](https://www.cloudquery.io/hub/plugins/source)
 - Plugin SDK: [https://github.com/cloudquery/plugin-sdk](https://github.com/cloudquery/plugin-sdk)
 
 ## License
 
-By contributing to CloudQuery you agree that your contributions will be licensed as defined on the LICENSE file.
-
-## Hiring
-
-If you are into Go, Backend, Cloud, GCP, AWS - ping us at jobs [at] our domain
+By contributing to CloudQuery, you agree that your contributions will be licensed as defined in the LICENSE file.
 
 ## Contribution
 
-Feel free to open a pull request for small fixes and changes. For bigger changes and new plugins, please open an issue first to prevent duplicated work and to have the relevant discussions first.
+Feel free to open a pull request for small fixes and changes. For bigger changes and new integrations, please open an issue first to prevent duplicated work and to have the relevant discussions first.
 
-## Open source and open core
+## Open source
 
-The CloudQuery framework, SDK and CLI are open source while plugins available under `plugins` are **open core**, hence not all contributions to plugins directory will be accepted if they are part of the commercial plugin offering - please [file an issue](https://github.com/cloudquery/cloudquery/issues/new/choose) before opening a PR.
+The CloudQuery framework, SDK, CLI, and some integrations are open source - please [file an issue](https://github.com/cloudquery/cloudquery/issues/new/choose) before opening a PR.
+Any code that was open source and moved to closed source can be found in the `git` history of this repo, or via the following links:
+
+- [Closed source files under MPL 2.0 license (zip file)](https://mozilla-public-license-assets.cloudquery.io/MPL%202.0%20Assets/cloudquery-private-2025-10-15.zip)
+- [Closed source files under MPL 2.0 license (CSV file)](https://mozilla-public-license-assets.cloudquery.io/MPL%202.0%20Assets/cloudquery-private-2025-10-15.csv)

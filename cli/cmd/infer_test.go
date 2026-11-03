@@ -36,12 +36,12 @@ spec:
   path: localhost:7777
   registry: grpc
 `,
-			outContains:        "Downloading https://plugins.cloudquery.io/cq-cloud-releases/cloudquery/source/gcp/v10.0.0/",
+			outContains:        "Downloading https://assets.cloudquery.io/cq-cloud-releases/cloudquery/source/gcp/v10.0.0/",
 			wantErrContains:    "",
 			wantErrNotContains: "",
 		},
 		{
-			name: "infer registry fail: recommend github",
+			name: "infer registry fail: recommend latest on hub",
 			config: `
 kind: source
 spec:
@@ -57,7 +57,7 @@ spec:
   path: localhost:7777
   registry: grpc
 `,
-			wantErrContains:    "Hint",
+			wantErrContains:    "version v99.999.0 does not exist, consider using the latest version at https://www.cloudquery.io/hub/plugins/source/cloudquery/gcp/v",
 			wantErrNotContains: "",
 		},
 		{

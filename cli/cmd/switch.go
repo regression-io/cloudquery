@@ -8,7 +8,7 @@ import (
 
 	"github.com/cloudquery/cloudquery-api-go/auth"
 	"github.com/cloudquery/cloudquery-api-go/config"
-	"github.com/cloudquery/cloudquery/cli/internal/team"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/team"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ cloudquery switch my-team
 
 func newCmdSwitch() *cobra.Command {
 	switchCmd := &cobra.Command{
-		Use:     "switch",
+		Use:     "switch [team]",
 		Short:   switchShort,
 		Long:    switchLong,
 		Example: switchExample,
@@ -54,7 +54,7 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 
 		allTeams, err := cl.ListAllTeams(cmd.Context())
 		if err != nil {
-			return fmt.Errorf("failed to list all teams: %w", err)
+			return fmt.Errorf("failed to list teams: %w", err)
 		}
 
 		if currentTeam == "" {
@@ -62,7 +62,8 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 		} else {
 			cmd.Printf("Your current team is set to %v.\n\n", currentTeam)
 		}
-		cmd.Println("Teams available to you:", strings.Join(allTeams, ", ")+"\n")
+		teamNames := team.Names(allTeams)
+		cmd.Println("Teams available to you:", strings.Join(teamNames, ", ")+"\n")
 		cmd.Println("To switch teams, run `cloudquery switch <team>`")
 		return nil
 	}
@@ -71,10 +72,27 @@ func runSwitch(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to switch teams: %w", err)
 	}
+
+	teamInfo, err := cl.GetTeam(cmd.Context(), selectedTeam)
+	if err != nil {
+		return fmt.Errorf("failed to get team: %w", err)
+	}
+
 	err = config.SetValue("team", selectedTeam)
 	if err != nil {
 		return fmt.Errorf("failed to set team value: %w", err)
 	}
+
+	teamInternalStr := "false"
+	if teamInfo.Internal {
+		teamInternalStr = "true"
+	}
+
+	err = config.SetValue("team_internal", teamInternalStr)
+	if err != nil {
+		return fmt.Errorf("failed to set team metadata: %w", err)
+	}
+
 	cmd.Printf("Successfully switched teams to %v.\n", selectedTeam)
 	return nil
 }

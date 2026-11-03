@@ -1,9 +1,9 @@
 package typeconv
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	arrow_types "github.com/cloudquery/cloudquery/plugins/destination/clickhouse/typeconv/arrow/types"
-	ch_types "github.com/cloudquery/cloudquery/plugins/destination/clickhouse/typeconv/ch/types"
+	"github.com/apache/arrow-go/v18/arrow"
+	arrow_types "github.com/cloudquery/cloudquery/plugins/destination/clickhouse/v8/typeconv/arrow/types"
+	ch_types "github.com/cloudquery/cloudquery/plugins/destination/clickhouse/v8/typeconv/ch/types"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )

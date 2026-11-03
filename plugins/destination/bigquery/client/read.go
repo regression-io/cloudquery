@@ -10,11 +10,11 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/decimal128"
-	"github.com/apache/arrow/go/v16/arrow/decimal256"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/decimal128"
+	"github.com/apache/arrow-go/v18/arrow/decimal256"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/cloudquery/plugin-sdk/v4/types"
 	"github.com/goccy/go-json"
@@ -25,7 +25,7 @@ const (
 	readSQL = "SELECT %s FROM `%s.%s.%s`"
 )
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	colSQL := "`" + strings.Join(table.Columns.Names(), "`, `") + "`"
 	stmt := fmt.Sprintf(readSQL, colSQL, c.spec.ProjectID, c.spec.DatasetID, table.Name)
 	q := c.client.Query(stmt)
@@ -53,7 +53,7 @@ func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow
 				return fmt.Errorf("failed to read from table %s: %w", table.Name, err)
 			}
 		}
-		res <- rb.NewRecord()
+		res <- rb.NewRecordBatch()
 	}
 	return nil
 }
@@ -137,28 +137,8 @@ func appendValue(builder array.Builder, value any) error {
 		bldr.Append(arrow.MonthInterval(t[0].(int64)))
 		return nil
 	case *array.TimestampBuilder:
-		unit := bldr.Type().(*arrow.TimestampType).Unit
-		switch unit {
-		case arrow.Nanosecond:
-			v := value.([]bigquery.Value)
-			t := v[0].(time.Time)
-			nano := v[1].(int64)
-			nanoTime := t.Add(time.Duration(nano) * time.Nanosecond)
-			ts, err := arrow.TimestampFromString(nanoTime.Format(time.RFC3339Nano), arrow.Nanosecond)
-			if err != nil {
-				return fmt.Errorf("failed to call arrow.TimestampFromString: %w", err)
-			}
-			bldr.Append(ts)
-			return nil
-		default:
-			t := value.(time.Time)
-			ts, err := arrow.TimestampFromString(t.Format(time.RFC3339Nano), unit)
-			if err != nil {
-				return fmt.Errorf("failed to call arrow.TimestampFromString: %w", err)
-			}
-			bldr.Append(ts)
-			return nil
-		}
+		bldr.AppendTime(value.(time.Time))
+		return nil
 	case *array.Decimal128Builder:
 		r := value.(*big.Rat)
 		str, precision, scale := parseRat(r)
@@ -178,7 +158,7 @@ func appendValue(builder array.Builder, value any) error {
 		bldr.Append(dec)
 		return nil
 	case *types.JSONBuilder:
-		return bldr.AppendValueFromString(value.(string))
+		return appendFromString(bldr, value.(string))
 	default:
 		// catch-all case to keep the code simple; this is only for testing
 		// so the performance of JSON marshaling is not a big concern here
@@ -188,6 +168,7 @@ func appendValue(builder array.Builder, value any) error {
 		}
 		r := strings.NewReader(string(b))
 		d := json.NewDecoder(r)
+		d.UseNumber()
 		err = bldr.UnmarshalOne(d)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal value of type %v: %w. Value was %v", bldr.Type(), err, string(b))

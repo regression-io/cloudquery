@@ -107,5 +107,62 @@ func TestSpec_JSONSchemaExtend(t *testing.T) {
 			Spec: `{"connection_string": "abc", "batch_timeout": null}`,
 			Err:  true,
 		},
+		// minimal valid with pgvector_config provided and complete
+		{
+			Name: "pgvector minimal",
+			Spec: `{
+				"connection_string":"abc",
+				"pgvector_config":{
+					"tables":[{"source_table_name":"box_file_contents","target_table_name":"box_file_contents_embeddings","embed_columns":["content"],"metadata_columns":["id"]}],
+					"openai_embedding":{"dimensions":1536,"api_key":"k","model_name":"text-embedding-3-small"}
+				}
+			}`,
+		},
+		{
+			Name: "lakebase minimal",
+			Spec: `{"connection_string":"abc","lakebase":{"endpoint":"projects/p/branches/b/endpoints/e"}}`,
+		},
+		{
+			Name: "lakebase full",
+			Spec: `{"connection_string":"abc","lakebase":{"endpoint":"projects/p/branches/b/endpoints/e","host":"https://example.cloud.databricks.com","client_id":"id","client_secret":"secret"}}`,
+		},
+		{
+			Name: "lakebase missing endpoint",
+			Spec: `{"connection_string":"abc","lakebase":{"host":"https://example.cloud.databricks.com"}}`,
+			Err:  true,
+		},
+		{
+			Name: "lakebase empty endpoint",
+			Spec: `{"connection_string":"abc","lakebase":{"endpoint":""}}`,
+			Err:  true,
+		},
+		{
+			Name: "lakebase unknown field",
+			Spec: `{"connection_string":"abc","lakebase":{"endpoint":"projects/p/branches/b/endpoints/e","unknown":"x"}}`,
+			Err:  true,
+		},
+		{
+			Name: "aws_iam_auth minimal",
+			Spec: `{"connection_string":"abc","aws_iam_auth":{}}`,
+		},
+		{
+			Name: "aws_iam_auth full",
+			Spec: `{"connection_string":"abc","aws_iam_auth":{"service":"rds","region":"us-east-1","endpoint":"mydb.123456789012.us-east-1.rds.amazonaws.com:5432","local_profile":"my_profile","role_arn":"arn:aws:iam::123456789012:role/my-role","role_session_name":"cloudquery","external_id":"external-id"}}`,
+		},
+		{
+			Name: "aws_iam_auth unsupported service",
+			Spec: `{"connection_string":"abc","aws_iam_auth":{"service":"dsql"}}`,
+			Err:  true,
+		},
+		{
+			Name: "aws_iam_auth invalid role_arn",
+			Spec: `{"connection_string":"abc","aws_iam_auth":{"role_arn":"not-an-arn"}}`,
+			Err:  true,
+		},
+		{
+			Name: "aws_iam_auth unknown field",
+			Spec: `{"connection_string":"abc","aws_iam_auth":{"unknown":"x"}}`,
+			Err:  true,
+		},
 	})
 }

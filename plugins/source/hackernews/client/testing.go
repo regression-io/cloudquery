@@ -6,14 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudquery/cloudquery/plugins/source/hackernews/client/services"
+	"github.com/cloudquery/cloudquery/plugins/source/hackernews/v3/client/services"
+	"github.com/cloudquery/plugin-sdk/v4/configtype"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/scheduler"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/cloudquery/plugin-sdk/v4/state"
 	"github.com/cloudquery/plugin-sdk/v4/transformers"
-	"github.com/golang/mock/gomock"
 	"github.com/rs/zerolog"
+	"go.uber.org/mock/gomock"
 )
 
 type TestOptions struct {
@@ -28,9 +29,9 @@ func MockTestHelper(t *testing.T, table *schema.Table, builder func(*testing.T, 
 		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.StampMicro},
 	).Level(zerolog.DebugLevel).With().Timestamp().Logger()
 
-	startTimeStr := ""
-	if !opts.StartTime.IsZero() {
-		startTimeStr = opts.StartTime.Format(time.RFC3339)
+	startTime, err := configtype.ParseTime(opts.StartTime.Format(time.RFC3339))
+	if err != nil {
+		t.Fatalf("failed to parse start time: %v", err)
 	}
 	c := &Client{
 		logger:     l,
@@ -40,7 +41,7 @@ func MockTestHelper(t *testing.T, table *schema.Table, builder func(*testing.T, 
 		backoff:    1 * time.Millisecond,
 		Spec: Spec{
 			ItemConcurrency: 10,
-			StartTime:       startTimeStr,
+			StartTime:       startTime,
 		},
 	}
 	tables := schema.Tables{table}

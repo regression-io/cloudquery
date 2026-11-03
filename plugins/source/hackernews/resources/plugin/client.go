@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/cloudquery/cloudquery/plugins/source/hackernews/client"
-	"github.com/cloudquery/cloudquery/plugins/source/hackernews/resources/services/items"
+
+	"github.com/cloudquery/cloudquery/plugins/source/hackernews/v3/client"
+	"github.com/cloudquery/cloudquery/plugins/source/hackernews/v3/resources/services/items"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/scheduler"
@@ -45,7 +46,11 @@ func (c *Client) Sync(ctx context.Context, options plugin.SyncOptions, res chan<
 		return fmt.Errorf("failed to create scheduler client: %w", err)
 	}
 
-	err = c.scheduler.Sync(ctx, schedulerClient, tt, res, scheduler.WithSyncDeterministicCQID(options.DeterministicCQID))
+	schedulerOptions := []scheduler.SyncOption{scheduler.WithSyncDeterministicCQID(options.DeterministicCQID)}
+	if options.Shard != nil {
+		schedulerOptions = append(schedulerOptions, scheduler.WithShard(options.Shard.Num, options.Shard.Total))
+	}
+	err = c.scheduler.Sync(ctx, schedulerClient, tt, res, schedulerOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to sync: %w", err)
 	}
@@ -101,6 +106,7 @@ func Configure(_ context.Context, logger zerolog.Logger, specBytes []byte, opts 
 		logger: logger,
 		scheduler: scheduler.NewScheduler(
 			scheduler.WithLogger(logger),
+			scheduler.WithInvocationID(opts.InvocationID),
 		),
 		tables: getTables(),
 	}, nil

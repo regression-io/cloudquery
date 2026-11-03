@@ -1,22 +1,12 @@
----
-name: Hacker News
-stage: GA
-title: Hacker News Source Plugin
-description: CloudQuery Hacker News source plugin documentation
----
-# Hacker News Source Plugin
-
-:badge
-
-The Hacker News Source plugin for CloudQuery extracts configuration from the [Hacker News API](https://github.com/HackerNews/API) and loads it into any supported CloudQuery destination (e.g. PostgreSQL, BigQuery, Snowflake, and [more](/docs/plugins/destinations/overview)).
+The Hacker News Source plugin for CloudQuery extracts configuration from the [Hacker News API](https://github.com/HackerNews/API) and loads it into any supported CloudQuery destination (e.g. PostgreSQL, BigQuery, Snowflake, and [more](https://www.cloudquery.io/hub/plugins/destination)).
 
 It can be used for real applications, but is mainly intended to serve as an example of CloudQuery Source plugin with an incremental table.
 
 ## Configuration
 
-The following configuration syncs from Hacker News to a Postgres destination, using a special table (`cq_hackernews_state`) to store the state of the last sync. It is also possible to any other CloudQuery destination as a state backend. For more on this, see [Managing Incremental Tables](/docs/advanced-topics/managing-incremental-tables).
+The following configuration syncs from Hacker News to a Postgres destination, using a special table (`cq_hackernews_state`) to store the state of the last sync. It is also possible to use any other CloudQuery destination as a state backend. For more on this, see [Managing Incremental Tables](https://www.cloudquery.io/docs/cli/advanced/managing-incremental-tables).
 
-The (top level) source spec section is described in the [Source Spec Reference](/docs/reference/source-spec). The config for the `postgresql` destination is not shown here. See our [Quickstart](/docs/quickstart) if you need help setting up the destination.
+The (top level) source spec section is described in the [Source Spec Reference](https://www.cloudquery.io/docs/cli/integrations/sources#complete-source-spec-reference). The config for the `postgresql` destination is not shown here. See our [Quickstart](https://www.cloudquery.io/docs/cli/getting-started) if you need help setting up the destination.
 
 :configuration
 
@@ -24,7 +14,7 @@ The (top level) source spec section is described in the [Source Spec Reference](
 Note that if `backend_options` is omitted, by default no backend will be used.
 This will result in all items being fetched on every sync.
 
-For more information about managing state for incremental tables, see [Managing Incremental Tables](/docs/advanced-topics/managing-incremental-tables).
+For more information about managing state for incremental tables, see [Managing Incremental Tables](https://www.cloudquery.io/docs/cli/advanced/managing-incremental-tables).
 :::
 
 - `item_concurrency` (`integer`) (optional):
@@ -35,7 +25,8 @@ For more information about managing state for incremental tables, see [Managing 
 
   A date-time string in `RFC3339` format.
   For example, `"2023-01-01T00:00:00Z"` will sync all items created on or after January 1, 2023.
-  If not specified, the plugin will fetch all items.
+  It is also possible to use relative time strings, such as `"3 hours ago"` or `"1 day ago"`.
+  If not specified, the plugin will fetch all items in the last 24 hours.
 
   Note that because this is an incremental table, a previous cursor position will take precedence over this setting, unless the given start time is after the last cursor position.
 

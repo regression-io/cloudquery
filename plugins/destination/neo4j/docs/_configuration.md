@@ -7,6 +7,8 @@ spec:
   path: "cloudquery/neo4j"
   registry: "cloudquery"
   version: "VERSION_DESTINATION_NEO4J"
+  send_sync_summary: true
+  # Learn more about the configuration options at https://cql.ink/neo4j_destination
   spec:
     connection_string: "${NEO4J_CONNECTION_STRING}"
     username: "${NEO4J_USERNAME}"

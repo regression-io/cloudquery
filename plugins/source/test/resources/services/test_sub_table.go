@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"strconv"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/cloudquery/cloudquery/plugins/source/test/client"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/cloudquery/cloudquery/plugins/source/test/v4/client"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"golang.org/x/exp/maps"
 )
@@ -53,7 +54,12 @@ func testSubTable(config client.Spec) *schema.Table {
 
 func fetchSubTableData(ctx context.Context, meta schema.ClientMeta, parent *schema.Resource, res chan<- any) error {
 	cl := meta.(*client.Client)
-
+	if cl.Spec.FailImmediately {
+		return ErrFailImmediately
+	}
+	if cl.Spec.ExitImmediately {
+		os.Exit(1)
+	}
 	colMap := make(map[string]any, *cl.Spec.NumSubCols)
 	for i := 0; i < *cl.Spec.NumSubCols; i++ {
 		colMap["extra_column_"+strconv.FormatInt(int64(i), 10)] = rand.Int63()
@@ -64,7 +70,7 @@ func fetchSubTableData(ctx context.Context, meta schema.ClientMeta, parent *sche
 			"sub_resource_id": i,
 			"data_column":     fmt.Sprintf("sub_data_%d", i%3),
 		}
-		maps.Copy(data, colMap)
+		maps.Copy(data, colMap) //nolint:govet // inline analyzer doesn't support generic type inference
 		res <- data
 	}
 	return nil

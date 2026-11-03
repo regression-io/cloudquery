@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
@@ -13,7 +14,7 @@ import (
 func TestPlugin(t *testing.T) {
 	ctx := context.Background()
 
-	p := plugin.NewPlugin("bigquery", "development", New)
+	p := plugin.NewPlugin("bigquery", "development", New, plugin.WithFlushSupport())
 	spec := &Spec{
 		ProjectID:        os.Getenv("BIGQUERY_PROJECT_ID"),
 		DatasetID:        os.Getenv("BIGQUERY_DATASET_ID"),
@@ -40,7 +41,8 @@ func TestPlugin(t *testing.T) {
 		plugin.WithTestDataOptions(schema.TestSourceOptions{
 			SkipMaps: true,
 			// https://github.com/cloudquery/cloudquery/issues/12022
-			SkipTimes: true,
+			SkipTimes:     true,
+			TimePrecision: time.Microsecond,
 		}),
 		plugin.WithTestIgnoreNullsInLists(),
 	)

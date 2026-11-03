@@ -1,8 +1,8 @@
 package values
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
 func FromArray(arr arrow.Array) (any, error) {

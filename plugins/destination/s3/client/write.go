@@ -3,15 +3,17 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"regexp"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
+	tmtypes "github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager/types"
 	"github.com/cloudquery/filetypes/v4"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
@@ -23,20 +25,24 @@ var reInvalidJSONKey = regexp.MustCompile(`\W`)
 
 func (c *Client) createObject(ctx context.Context, table *schema.Table, objKey string) (*filetypes.Stream, error) {
 	s, err := c.Client.StartStream(table, func(r io.Reader) error {
-		params := &s3.PutObjectInput{
+		params := &transfermanager.UploadObjectInput{
 			Bucket:      aws.String(c.spec.Bucket),
 			Key:         aws.String(objKey),
 			Body:        r,
 			ContentType: aws.String(c.spec.GetContentType()),
 		}
 
-		sseConfiguration := c.spec.ServerSideEncryptionConfiguration
-		if sseConfiguration != nil {
-			params.SSEKMSKeyId = &sseConfiguration.SSEKMSKeyId
-			params.ServerSideEncryption = sseConfiguration.ServerSideEncryption
+		if c.spec.ACL != "" {
+			params.ACL = tmtypes.ObjectCannedACL(c.spec.ACL)
 		}
 
-		_, err := c.uploader.Upload(ctx, params)
+		sseConfiguration := c.spec.ServerSideEncryptionConfiguration
+		if sseConfiguration != nil {
+			params.SSEKMSKeyID = &sseConfiguration.SSEKMSKeyId
+			params.ServerSideEncryption = tmtypes.ServerSideEncryption(sseConfiguration.ServerSideEncryption)
+		}
+
+		_, err := c.transferManager.UploadObject(ctx, params)
 		return err
 	})
 	return s, err
@@ -50,11 +56,12 @@ func (c *Client) WriteTable(ctx context.Context, msgs <-chan *message.WriteInser
 			table := msg.GetTable()
 			objKey := c.spec.ReplacePathVariables(table.Name, uuid.NewString(), time.Now().UTC(), c.syncID)
 			// if object was already initialized, use the same key
-			// We don't need any locking here because all messages for the same table are processed sequentially
+			c.initializedTablesLock.Lock()
 			if val, ok := c.initializedTables[table.Name]; ok {
 				objKey = val
 				delete(c.initializedTables, table.Name)
 			}
+			c.initializedTablesLock.Unlock()
 
 			var err error
 			s, err = c.createObject(ctx, table, objKey)
@@ -72,7 +79,7 @@ func (c *Client) WriteTable(ctx context.Context, msgs <-chan *message.WriteInser
 			}
 		}
 
-		if err := s.Write([]arrow.Record{msg.Record}); err != nil {
+		if err := s.Write([]arrow.RecordBatch{msg.Record}); err != nil {
 			_ = s.FinishWithError(err)
 			return err
 		}
@@ -86,6 +93,9 @@ func (c *Client) Write(ctx context.Context, msgs <-chan message.WriteMessage) er
 }
 
 func (c *Client) MigrateTable(ctx context.Context, ch <-chan *message.WriteMigrateTable) error {
+	// nolint:prealloc
+	var errs []error
+
 	for msg := range ch {
 		if !c.spec.GenerateEmptyObjects {
 			continue
@@ -96,23 +106,22 @@ func (c *Client) MigrateTable(ctx context.Context, ch <-chan *message.WriteMigra
 		c.initializedTables[table.Name] = objKey
 		s, err := c.createObject(ctx, table, objKey)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
-		err = s.Finish()
-		if err != nil {
-			return err
-		}
+		errs = append(errs, s.Finish())
 	}
-	return nil
+
+	return errors.Join(errs...)
 }
 
 // sanitizeRecordJSONKeys replaces all invalid characters in JSON keys with underscores. This is required
 // for compatibility with Athena.
-func sanitizeRecordJSONKeys(record arrow.Record) (arrow.Record, error) {
+func sanitizeRecordJSONKeys(record arrow.RecordBatch) (arrow.RecordBatch, error) {
 	cols := make([]arrow.Array, record.NumCols())
 	for i, col := range record.Columns() {
 		if arrow.TypeEqual(col.DataType(), types.NewJSONType()) {
-			b := types.NewJSONBuilder(array.NewExtensionBuilder(memory.DefaultAllocator, types.NewJSONType()))
+			b := types.NewJSONBuilder(memory.DefaultAllocator)
 			for r := 0; r < int(record.NumRows()); r++ {
 				if col.IsNull(r) {
 					b.AppendNull()
@@ -129,7 +138,7 @@ func sanitizeRecordJSONKeys(record arrow.Record) (arrow.Record, error) {
 		}
 		cols[i] = col
 	}
-	return array.NewRecord(record.Schema(), cols, record.NumRows()), nil
+	return array.NewRecordBatch(record.Schema(), cols, record.NumRows()), nil
 }
 
 func sanitizeJSONRawMessage(rawMessage json.RawMessage) (any, error) {

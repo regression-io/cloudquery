@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
 
@@ -65,7 +65,7 @@ var transformTestCases = []struct {
 			{Name: "_cq_sync_time", Type: arrow.FixedWidthTypes.Timestamp_us, Nullable: true},
 			{Name: "id", Type: arrow.PrimitiveTypes.Int64},
 		}, nil),
-		expectedJSONRecord: []byte(`{"_cq_sync_time": "2023-06-21 17:54:44.488177","id": 1}`),
+		expectedJSONRecord: []byte(`{"_cq_sync_time": "2023-06-21 17:54:44.488177Z","id": 1}`),
 	},
 	{
 		name: "add_source_and_sync_time",
@@ -85,7 +85,7 @@ var transformTestCases = []struct {
 			{Name: "_cq_source_name", Type: arrow.BinaryTypes.String, Nullable: true},
 			{Name: "id", Type: arrow.PrimitiveTypes.Int64},
 		}, nil),
-		expectedJSONRecord: []byte(`{"_cq_sync_time": "2023-06-21 17:54:44.488177","_cq_source_name": "test","id": 1}`),
+		expectedJSONRecord: []byte(`{"_cq_sync_time": "2023-06-21 17:54:44.488177Z","_cq_source_name": "test","id": 1}`),
 	},
 	{
 		name: "use_cq_id_primary_key_with_remove_pks",
@@ -144,7 +144,7 @@ func TestRecord(t *testing.T) {
 			if err := bldr.UnmarshalJSON(tc.originalJSONRecord); err != nil {
 				t.Fatal(err)
 			}
-			record := bldr.NewRecord()
+			record := bldr.NewRecordBatch()
 			transformedRecord := tc.transformer().Transform(record)
 			if transformedRecord.Schema().String() != tc.expectedSchema.String() {
 				t.Fatalf("expected schema\n%v, got\n%v", tc.expectedSchema, transformedRecord.Schema())
@@ -153,7 +153,7 @@ func TestRecord(t *testing.T) {
 			if err := bldr.UnmarshalJSON(tc.expectedJSONRecord); err != nil {
 				t.Fatal(err)
 			}
-			expectedRecord := bldr.NewRecord()
+			expectedRecord := bldr.NewRecordBatch()
 			if !array.RecordEqual(expectedRecord, transformedRecord) {
 				b, err := json.Marshal(transformedRecord)
 				if err != nil {

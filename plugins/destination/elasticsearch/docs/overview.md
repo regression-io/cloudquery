@@ -13,7 +13,7 @@ The Elasticsearch plugin syncs data from any CloudQuery source plugin(s) to an E
 
 :configuration
 
-The Elasticsearch destination utilizes batching, and supports [`batch_size`](/docs/reference/destination-spec#batch_size) and [`batch_size_bytes`](/docs/reference/destination-spec#batch_size_bytes).
+The Elasticsearch destination utilizes batching, and supports [`batch_size`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size) and [`batch_size_bytes`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size_bytes).
 
 It supports `append`, `overwrite` and `overwrite-delete-stale` write modes. The default write mode is `overwrite-delete-stale`.
 
@@ -53,7 +53,7 @@ This is the spec used by the Elasticsearch destination plugin.
 
 - `ca_cert` (`string`) (optional)
 
-   PEM-encoded certificate authorities. When set, an empty certificate pool will be created, and the certificates will be appended to it. See [file variable substitution](/docs/advanced-topics/environment-variable-substitution#file-variable-substitution-example) for how to read this value from a file.
+   PEM-encoded certificate authorities. When set, an empty certificate pool will be created, and the certificates will be appended to it. See [file variable substitution](https://www.cloudquery.io/docs/cli/managing-cloudquery/environment-variables#file-variable-substitution-example) for how to read this value from a file.
 
 - `concurrency` (`string`) (optional) (default: number of CPUs)
 
@@ -83,8 +83,8 @@ Index templates will also be created such that they match the index names genera
 
 ## Querying From Kibana
 
-To query data from Kibana, you will need to create [data views](https://www.elastic.co/guide/en/kibana/8.6/data-views.html) (previously also known as "index patterns"). To query a specific table, the data view's index pattern should be in the format `<table_name>-*`. For example, if you have a table named `aws_ec2_instances`, you should create a data view with index pattern named `aws_ec2_instances-*`. One useful feature of Elasticsearch and Kibana, however, is the ability to query across all data. To do this for the `aws` source plugin, for example, you may use an index pattern named `aws_*`. This will then allow queries across all tables synced by the `aws` source plugin.
+To query data from Kibana, you will need to create [data views](https://www.elastic.co/guide/en/kibana/9.0/data-views.html) (previously also known as "index patterns"). To query a specific table, the data view's index pattern should be in the format `<table_name>-*`. For example, if you have a table named `aws_ec2_instances`, you should create a data view with index pattern named `aws_ec2_instances-*`. One useful feature of Elasticsearch and Kibana, however, is the ability to query across all data. To do this for the `aws` source plugin, for example, you may use an index pattern named `aws_*`. This will then allow queries across all tables synced by the `aws` source plugin.
 
 ## Underlying library
 
-We use the official [go-elasticsearch](https://github.com/elastic/go-elasticsearch) package. It is tested against Elasticsearch 8.6.0. Please [open an issue](https://github.com/cloudquery/cloudquery/issues/new?title=Elasticsearch+destination+plugin) if you encounter any problems with this (or another) version.
+We use the official [go-elasticsearch](https://github.com/elastic/go-elasticsearch) package. It is tested against Elasticsearch 9.0 and above. Please [open an issue](https://github.com/cloudquery/cloudquery/issues/new?title=Elasticsearch+destination+plugin) if you encounter any problems with this (or another) version.

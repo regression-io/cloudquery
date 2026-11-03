@@ -5,12 +5,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/cloudquery/cloudquery/cli/internal/enum"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/env"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"github.com/cloudquery/cloudquery/cli/v6/internal/enum"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/secrets"
 )
 
-func initLogging(noLogFile bool, logLevel *enum.Enum, logFormat *enum.Enum, logConsole bool, logFileName string) (*os.File, error) {
+func initLogging(noLogFile bool, logLevel *enum.Enum, logFormat *enum.Enum, logConsole bool, logFileName string, logFileOverwrite bool) (*os.File, error) {
 	var logFile *os.File
 	zerologLevel, err := zerolog.ParseLevel(logLevel.String())
 	if err != nil {
@@ -18,7 +21,13 @@ func initLogging(noLogFile bool, logLevel *enum.Enum, logFormat *enum.Enum, logC
 	}
 	var writers []io.Writer
 	if !noLogFile {
-		logFile, err = os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		flags := os.O_CREATE | os.O_WRONLY
+		if logFileOverwrite {
+			flags |= os.O_TRUNC
+		} else {
+			flags |= os.O_APPEND
+		}
+		logFile, err = os.OpenFile(logFileName, flags, 0666)
 		if err != nil {
 			return nil, err
 		}
@@ -48,6 +57,10 @@ func initLogging(noLogFile bool, logLevel *enum.Enum, logFormat *enum.Enum, logC
 		}
 	}
 	mw := io.MultiWriter(writers...)
-	log.Logger = zerolog.New(mw).Level(zerologLevel).With().Str("module", "cli").Str("invocation-id", invocationUUID.String()).Timestamp().Logger()
+	secretAwareWriter := secrets.NewSecretAwareWriter(mw, secretAwareRedactor)
+	log.Logger = zerolog.New(secretAwareWriter).Level(zerologLevel).With().Str("module", "cli").Str("invocation_id", invocationUUID.String()).Timestamp().Logger()
+	if env.TenantID() != "" {
+		log.Logger = log.Logger.With().Str("tenant_id", env.TenantID()).Logger()
+	}
 	return logFile, nil
 }

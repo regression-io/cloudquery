@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/util"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/v8/util"
 )
 
 func FieldType(field arrow.Field) (string, error) {

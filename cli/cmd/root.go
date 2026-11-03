@@ -1,46 +1,59 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/analytics"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/enum"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/env"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/otel"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/secrets"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/uuid"
+	guuid "github.com/google/uuid"
 	"github.com/rs/zerolog"
-
-	"github.com/cloudquery/cloudquery/cli/internal/enum"
-	"github.com/cloudquery/cloudquery/cli/internal/env"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/thoas/go-funk"
 )
 
-const sentryDsnDefault = "https://3d2f1b94bdb64884ab1a52f56ce56652@o1396617.ingest.sentry.io/6720193"
+const sentryDsnDefault = "https://3d2f1b94bdb64884ab1a52f56ce56652@o1396617.ingest.us.sentry.io/6720193"
 
 var (
 	Version   = "development"
 	rootShort = "CloudQuery CLI"
 	rootLong  = `CloudQuery CLI
 
-Open source data integration at scale.
+High performance data integration at scale.
 
 Find more information at:
 	https://www.cloudquery.io`
 
-	disableSentry   = false
-	analyticsClient *AnalyticsClient
-	logFile         *os.File
-	invocationUUID  uuid.UUID
+	disableSentry       = false
+	logConsole          = false
+	logFile             *os.File
+	invocationUUID      uuid.UUID
+	secretAwareRedactor *secrets.SecretAwareRedactor
+	loggingShutdownFn   func()
 )
 
 func NewCmdRoot() *cobra.Command {
 	logLevel := enum.NewEnum([]string{"trace", "debug", "info", "warn", "error"}, "info")
 	logFormat := enum.NewEnum([]string{"text", "json"}, "text")
 	telemetryLevel := enum.NewEnum([]string{"none", "errors", "stats", "all"}, "all")
-	logConsole := false
 	noLogFile := false
 	logFileName := "cloudquery.log"
+	logFileOverwrite := false
 	sentryDsn := sentryDsnDefault
+	var err error
+	if invocationUUID.UUID, err = guuid.NewRandom(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to generate invocation uuid: %v", err)
+		os.Exit(1)
+	}
+	secretAwareRedactor = secrets.NewSecretAwareRedactor()
 
 	// support legacy telemetry environment variable,
 	// but the newer CQ_TELEMETRY_LEVEL environment variable takes precedence
@@ -49,9 +62,9 @@ func NewCmdRoot() *cobra.Command {
 	if legacyTelemetry != "" {
 		defaultTelemetryValue = "none"
 	}
-	err := telemetryLevel.Set(env.GetEnvOrDefault("CQ_TELEMETRY_LEVEL", defaultTelemetryValue))
+	err = telemetryLevel.Set(env.GetEnvOrDefault("CQ_TELEMETRY_LEVEL", defaultTelemetryValue))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to set telemetry level: "+err.Error())
+		fmt.Fprintf(os.Stderr, "failed to set telemetry level: %v", err)
 		os.Exit(1)
 	}
 
@@ -70,13 +83,21 @@ func NewCmdRoot() *cobra.Command {
 			cmd.SilenceUsage = true
 			var err error
 
-			invocationUUID, err = uuid.NewRandom()
-			if err != nil {
-				return fmt.Errorf("failed to generate invocation uuid: %w", err)
+			if logFile, err = initLogging(noLogFile, logLevel, logFormat, logConsole, logFileName, logFileOverwrite); err != nil {
+				return err
 			}
 
-			if logFile, err = initLogging(noLogFile, logLevel, logFormat, logConsole, logFileName); err != nil {
+			oc, err := otelConfig()
+			if err != nil {
 				return err
+			}
+			if oc.Endpoint != "" {
+				loggingShutdownFn, err = otel.SetupOtel(context.Background(), log.Logger, oc)
+				if err != nil {
+					return fmt.Errorf("failed to setup OpenTelemetry: %w", err)
+				}
+				log.Logger = log.Logger.Hook(otel.NewOTELLoggerHook(invocationUUID.String()))
+				log.Info().Str("otel_logs_endpoint", oc.Endpoint).Msg("otel logs endpoint set")
 			}
 
 			// log warnings now that the logger is initialized
@@ -84,13 +105,12 @@ func NewCmdRoot() *cobra.Command {
 				log.Warn().Msg("The CQ_NO_TELEMETRY environment variable will be deprecated, please use CQ_TELEMETRY_LEVEL=none instead.")
 			}
 
+			// log version of the CLI that is running
+			log.Info().Str("version", Version).Msg("CloudQuery CLI")
+
 			sendStats := funk.ContainsString([]string{"all", "stats"}, telemetryLevel.String())
-			customAnalyticsHost := os.Getenv("CQ_ANALYTICS_HOST") != defaultAnalyticsHost
-			if (Version != "development" || customAnalyticsHost) && sendStats {
-				analyticsClient, err = initAnalytics()
-				if err != nil {
-					log.Warn().Err(err).Msg("failed to initialize analytics client")
-				}
+			if Version != "development" && sendStats {
+				analytics.InitClient()
 			}
 
 			sendErrors := funk.ContainsString([]string{"all", "errors"}, telemetryLevel.String())
@@ -106,6 +126,9 @@ func NewCmdRoot() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.SetErr(secrets.NewSecretAwareWriter(os.Stderr, secretAwareRedactor))
+	cmd.SetOut(secrets.NewSecretAwareWriter(os.Stdout, secretAwareRedactor))
 
 	cmd.PersistentFlags().String("cq-dir", ".cq", "directory to store cloudquery files, such as downloaded plugins")
 	cmd.PersistentFlags().String("data-dir", "", "set persistent data directory")
@@ -126,11 +149,14 @@ func NewCmdRoot() *cobra.Command {
 	cmd.PersistentFlags().Var(logLevel, "log-level", "Logging level (trace, debug, info, warn, error)")
 	cmd.PersistentFlags().BoolVar(&noLogFile, "no-log-file", false, "Disable logging to file")
 	cmd.PersistentFlags().StringVar(&logFileName, "log-file-name", "cloudquery.log", "Log filename")
+	cmd.PersistentFlags().BoolVar(&logFileOverwrite, "log-file-overwrite", false, "Overwrite log file on each run instead of appending. Use this if your filesystem does not support append mode (e.g. FUSE-mounted cloud storage).")
 
 	// Telemetry (analytics) flags
 	f := cmd.PersistentFlags().VarPF(telemetryLevel, "telemetry-level", "", "Telemetry level (none, errors, stats, all)")
 	f.DefValue = "all"
 
+	iUUID := cmd.PersistentFlags().VarPF(&invocationUUID, "invocation-id", "", "useful for when using Open Telemetry integration for tracing and logging to be able to correlate logs and traces through many services")
+	iUUID.DefValue = "<NEW-RANDOM-UUID>"
 	cmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
 	pluginCmd := &cobra.Command{
@@ -146,11 +172,20 @@ func NewCmdRoot() *cobra.Command {
 		newCmdPluginDocsDownload(),
 		newCmdPluginDocsUpload(),
 	)
+	pluginUIAssetsCmd := &cobra.Command{
+		Use:    "uiassets",
+		Short:  "Plugin UI asset commands",
+		Hidden: true,
+	}
+	pluginUIAssetsCmd.AddCommand(
+		newCmdPluginUIAssetsUpload(),
+	)
 
 	pluginCmd.AddCommand(
 		newCmdPluginInstall(false),
 		newCmdPluginPublish(),
 		pluginDocCmd,
+		pluginUIAssetsCmd,
 	)
 
 	addonCmd := &cobra.Command{
@@ -175,12 +210,16 @@ func NewCmdRoot() *cobra.Command {
 		newCmdPluginInstall(true), // legacy
 		pluginCmd,
 		addonCmd,
+		newCmdInit(),
+		newCmdUpgrade(),
 	)
+
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 	cmd.DisableAutoGenTag = true
 	cobra.OnFinalize(func() {
-		if analyticsClient != nil {
-			analyticsClient.Close()
+		analytics.Close()
+		if loggingShutdownFn != nil {
+			loggingShutdownFn()
 		}
 	})
 
@@ -201,4 +240,15 @@ func CloseLogFile() {
 	if logFile != nil {
 		logFile.Close()
 	}
+}
+
+func otelConfig() (*otel.Config, error) {
+	insecureEndpoint, err := strconv.ParseBool(env.GetEnvOrDefault("OTEL_ENDPOINT_INSECURE", "false"))
+	if err != nil {
+		return nil, err
+	}
+	return &otel.Config{
+		Endpoint: env.GetEnvOrDefault("OTEL_ENDPOINT", ""),
+		Insecure: insecureEndpoint,
+	}, nil
 }

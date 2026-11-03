@@ -5,8 +5,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cloudquery/cloudquery/cli/internal/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/specs/v0"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/auth"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/specs/v0"
 	"github.com/cloudquery/plugin-pb-go/managedplugin"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -61,12 +61,12 @@ func tables(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	log.Info().Strs("args", args).Msg("Loading spec(s)")
 	fmt.Printf("Loading spec(s) from %s\n", strings.Join(args, ", "))
-	specReader, err := specs.NewSpecReader(args)
+	specReader, err := specs.NewRelaxedSpecReader(args)
 	if err != nil {
 		return fmt.Errorf("failed to load spec(s) from %s. Error: %w", strings.Join(args, ", "), err)
 	}
 	sources := specReader.Sources
-	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, nil)
+	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get auth token: %w", err)
 	}
@@ -74,10 +74,17 @@ func tables(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get team name: %w", err)
 	}
+
+	pluginVersionWarner, _ := managedplugin.NewPluginVersionWarner(log.Logger, authToken.Value)
+	specs.WarnOnOutdatedVersions(ctx, pluginVersionWarner, sources, nil, nil)
+
 	opts := []managedplugin.Option{
 		managedplugin.WithLogger(log.Logger),
 		managedplugin.WithAuthToken(authToken.Value),
 		managedplugin.WithTeamName(teamName),
+	}
+	if logConsole {
+		opts = append(opts, managedplugin.WithNoProgress())
 	}
 	if cqDir != "" {
 		opts = append(opts, managedplugin.WithDirectory(cqDir))
@@ -107,23 +114,17 @@ func tables(cmd *cobra.Command, args []string) error {
 			fmt.Println(err)
 		}
 	}()
+	sourceVersions, err := sourceProtocolVersions(ctx, sources, sourceClients)
+	if err != nil {
+		return err
+	}
 	for _, source := range specReader.Sources {
 		cl := sourceClients.ClientByName(source.Name)
 		outputPath := path.Join(outputDir, source.Name)
 		fmt.Printf("Generating docs for %q to directory %q\n", source.Name, outputPath)
-		versions, err := cl.Versions(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get versions for %s. Error: %w", source.Name, err)
-		}
-		maxVersion := findMaxCommonVersion(versions, []int{2, 3})
-		switch maxVersion {
+		switch maxVersion := sourceVersions[source.Name]; maxVersion {
 		case 3:
 			if err := tablesV3(ctx, cl, source, outputPath, format, filter); err != nil {
-				return err
-			}
-			fmt.Printf("Done generating docs for %q to directory %q\n", source.Name, outputPath)
-		case 2:
-			if err := tablesV2(ctx, cl, outputPath, format); err != nil {
 				return err
 			}
 			fmt.Printf("Done generating docs for %q to directory %q\n", source.Name, outputPath)

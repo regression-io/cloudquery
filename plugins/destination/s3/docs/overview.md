@@ -4,7 +4,6 @@ stage: GA
 title: S3 Destination Plugin
 description: CloudQuery S3 destination plugin documentation
 ---
-# S3 Destination Plugin
 
 :badge
 
@@ -18,6 +17,12 @@ This is useful in various use-cases, especially in data lakes where you can quer
 
 The S3 destination utilizes batching, and supports `batch_size`, `batch_size_bytes` and `batch_timeout` options (see below).
 
+## State Checkpoints
+
+With CLI v6.49.0 or later and a source that sends state checkpoints, the S3 destination uploads every open object before the CLI saves the source's incremental state. It supports this only when `path` contains `{{UUID}}`, because each checkpoint ends the open objects and the next objects need new keys. With `no_rotate: true` or a `path` without `{{UUID}}`, the CLI turns off state checkpoints for every destination of the sync, and the source saves its state itself, as before.
+
+Checkpoints end objects before they reach `batch_size`, `batch_size_bytes` or `batch_timeout`, so a sync can write more, smaller objects.
+
 ## S3 Spec
 
 This is the (nested) spec used by the CSV destination Plugin.
@@ -29,6 +34,10 @@ This is the (nested) spec used by the CSV destination Plugin.
 - `region` (`string`) (required)
 
   Region where bucket is located.
+
+- `credentials` ([credentials](#credentials)) (optional)
+
+  Optional parameters to enable non-default credentials, to authenticate with the S3 API
 
 - `path` (`string`) (required)
 
@@ -89,8 +98,12 @@ This is the (nested) spec used by the CSV destination Plugin.
   Endpoint to use for S3 API calls. This is useful for S3-compatible storage services such as MinIO.
   **Note**: if you want to use path-style addressing, i.e., `https://s3.amazonaws.com/BUCKET/KEY`, `use_path_style` should be enabled, too.
 
+- `acl` (`string`) (optional) (default: `""`)
+
+  Canned ACL to apply to the object. Supported values are `private`, `public-read`, `public-read-write`, `authenticated-read`, `aws-exec-read`, `bucket-owner-read`, `bucket-owner-full-control`.
+
 - `endpoint_skip_tls_verify` (`boolean`) (optional) (default: `false`)
-  
+
   Disable TLS verification for requests to your S3 endpoint.
 
   This option is intended to be used when using a custom endpoint using the `endpoint` option.
@@ -114,13 +127,38 @@ This is the (nested) spec used by the CSV destination Plugin.
 
 ### format_spec
 
+#### CSV
+
 - `delimiter` (`string`) (optional) (default: `,`)
 
-  Character that will be used as want to use as the delimiter if the format type is `csv`
+  Delimiter to use in the CSV file.
 
 - `skip_header` (`boolean`) (optional) (default: `false`)
 
-  Specifies if the first line of a file should be the headers (when format is `csv`).
+  If set to `true`, the CSV file will not contain a header row as the first row.
+
+#### JSON
+
+Reserved for future use.
+
+#### Parquet
+
+- `version` (`string`) (optional) (default: `v2Latest`)
+
+  Parquet format version to use. Supported values are `v1.0`, `v2.4`, `v2.6` and `v2Latest`.
+  `v2Latest` is an alias for the latest version available in the Parquet library which is currently `v2.6`.
+
+  Useful when the reader consuming the Parquet files does not support the latest version.
+
+- `root_repetition` (`string`) (optional) (default: `repeated`)
+
+  Repetition option for the root node. Supported values are `undefined`, `required`, `optional` and `repeated`.
+
+  This option is kept for compatibility. Since [arrow-go v18.6.0](https://github.com/apache/arrow-go/pull/723), the Parquet writer does not write the root repetition. The value has no effect on the file.
+
+- `max_row_group_length` (`integer`) (optional) (default: `1048576` (= `1024 * 1024`))
+
+  The maximum number of rows in a single row group. This value is a row count, not a size in bytes. Use a lower number to reduce memory usage when reading the Parquet files, and a higher number to increase the efficiency of reading the Parquet files.
 
 ### server_side_encryption_configuration
 
@@ -132,6 +170,45 @@ This is the (nested) spec used by the CSV destination Plugin.
 
   The server-side encryption algorithm used when storing the object in S3. Supported values are `AES256`, `aws:kms` and `aws:kms:dsse`.
 
-## Authentication
+### credentials
 
-:authentication
+- `local_profile` (`string`) (default: will use current credentials)
+
+  [Local profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) to use to authenticate this account with.
+  Please note this should be set to the name of the profile.
+
+  For example, with the following credentials file:
+
+  ```toml copy
+  [default]
+  aws_access_key_id=xxxx
+  aws_secret_access_key=xxxx
+
+  [user1]
+  aws_access_key_id=xxxx
+  aws_secret_access_key=xxxx
+  ```
+
+  `local_profile` should be set to either `default` or `user1`.
+
+- `role_arn` (`string`)
+
+  If specified will use this to assume role.
+
+- `role_session_name` (`string`)
+
+  If specified will use this session name when assume role to `role_arn`.
+
+- `external_id` (`string`)
+
+  If specified will use this when assuming role to `role_arn`.
+
+#### CSV
+
+- `delimiter` (`string`) (optional) (default: `,`)
+
+  Delimiter to use in the CSV file.
+
+- `skip_header` (`boolean`) (optional) (default: `false`)
+
+  If set to `true`, the CSV file will not contain a header row as the first row.

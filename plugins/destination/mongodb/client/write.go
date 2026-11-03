@@ -3,16 +3,18 @@ package client
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/goccy/go-json"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/cloudquery/plugin-sdk/v4/types"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 func transformArr(arr arrow.Array) []any {
@@ -57,14 +59,14 @@ func transformArr(arr arrow.Array) []any {
 		case *array.Timestamp:
 			dbArr[i] = a.Value(i).ToTime(a.DataType().(*arrow.TimestampType).Unit)
 		case *types.JSONArray:
-			var val any
-			if err := json.Unmarshal([]byte(a.ValueStr(i)), &val); err != nil {
+			val, err := unmarshalNestedJSON([]byte(a.ValueStr(i)))
+			if err != nil {
 				panic(err)
 			}
 			dbArr[i] = val
 		case *array.Struct:
-			var val any
-			if err := json.Unmarshal([]byte(a.ValueStr(i)), &val); err != nil {
+			val, err := unmarshalNestedJSON([]byte(a.ValueStr(i)))
+			if err != nil {
 				panic(err)
 			}
 			dbArr[i] = val
@@ -80,7 +82,58 @@ func transformArr(arr arrow.Array) []any {
 	return dbArr
 }
 
-func (*Client) transformRecord(table *schema.Table, record arrow.Record) []any {
+func parseTypeSchema(typeSchema string) any {
+	if typeSchema == "" {
+		return nil
+	}
+	var sch any
+	if err := json.Unmarshal([]byte(typeSchema), &sch); err != nil {
+		return nil
+	}
+	return sch
+}
+
+func convertTimestamps(value, sch any) any {
+	switch s := sch.(type) {
+	case map[string]any:
+		obj, ok := value.(map[string]any)
+		if !ok {
+			return value
+		}
+		for field, sub := range s {
+			if v, present := obj[field]; present {
+				obj[field] = convertTimestamps(v, sub)
+			}
+		}
+		return obj
+	case []any:
+		arr, ok := value.([]any)
+		if !ok || len(s) == 0 {
+			return value
+		}
+		for i, v := range arr {
+			arr[i] = convertTimestamps(v, s[0])
+		}
+		return arr
+	case string:
+		if str, ok := value.(string); ok && strings.HasPrefix(s, "timestamp") {
+			if ts, err := parseTimestamp(str); err == nil {
+				return ts
+			}
+		}
+		return value
+	}
+	return value
+}
+
+func parseTimestamp(s string) (time.Time, error) {
+	if ts, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return ts, nil
+	}
+	return time.Parse(time.RFC3339, s)
+}
+
+func (*Client) transformRecord(table *schema.Table, record arrow.RecordBatch) []any {
 	nc := int(record.NumCols())
 	nr := int(record.NumRows())
 	documents := make([]any, nr)
@@ -91,6 +144,11 @@ func (*Client) transformRecord(table *schema.Table, record arrow.Record) []any {
 	for i := 0; i < nc; i++ {
 		col := record.Column(i)
 		transformed := transformArr(col)
+		if sch := parseTypeSchema(table.Columns[i].TypeSchema); sch != nil {
+			for l := 0; l < nr; l++ {
+				transformed[l] = convertTimestamps(transformed[l], sch)
+			}
+		}
 		for l := 0; l < nr; l++ {
 			documents[l].(bson.M)[table.Columns[i].Name] = transformed[l]
 		}
@@ -98,7 +156,7 @@ func (*Client) transformRecord(table *schema.Table, record arrow.Record) []any {
 	return documents
 }
 
-func (c *Client) transformRecords(table *schema.Table, records []arrow.Record) []any {
+func (c *Client) transformRecords(table *schema.Table, records []arrow.RecordBatch) []any {
 	documents := make([]any, 0, len(records))
 	for _, r := range records {
 		docs := c.transformRecord(table, r)
@@ -108,15 +166,16 @@ func (c *Client) transformRecords(table *schema.Table, records []arrow.Record) [
 }
 
 func (c *Client) appendTableBatch(ctx context.Context, table *schema.Table, documents []any) error {
-	tableName := table.Name
-	if _, err := c.client.Database(c.spec.Database).Collection(tableName).InsertMany(ctx, documents); err != nil {
-		return err
-	}
-	return nil
+	collection := c.client.Database(c.spec.Database).Collection(table.Name)
+	return retryWrite(ctx, c.logger, c.spec.WriteRetry, table.Name, func() error {
+		return c.runWrite(ctx, func(ctx context.Context) error {
+			_, err := collection.InsertMany(ctx, documents)
+			return err
+		})
+	})
 }
 
 func (c *Client) overwriteTableBatch(ctx context.Context, table *schema.Table, documents []any) error {
-	tableName := table.Name
 	operations := make([]mongo.WriteModel, len(documents))
 	pks := table.PrimaryKeys()
 	for i, document := range documents {
@@ -134,11 +193,13 @@ func (c *Client) overwriteTableBatch(ctx context.Context, table *schema.Table, d
 		operation.SetUpdate(bson.M{"$set": update})
 		operations[i] = operation
 	}
-	if _, err := c.client.Database(c.spec.Database).Collection(tableName).BulkWrite(ctx, operations); err != nil {
-		return err
-	}
-
-	return nil
+	collection := c.client.Database(c.spec.Database).Collection(table.Name)
+	return retryWrite(ctx, c.logger, c.spec.WriteRetry, table.Name, func() error {
+		return c.runWrite(ctx, func(ctx context.Context) error {
+			_, err := collection.BulkWrite(ctx, operations)
+			return err
+		})
+	})
 }
 
 func (c *Client) WriteTableBatch(ctx context.Context, tableName string, msgs message.WriteInserts) error {
@@ -149,7 +210,7 @@ func (c *Client) WriteTableBatch(ctx context.Context, tableName string, msgs mes
 	if err != nil {
 		return err
 	}
-	records := make([]arrow.Record, len(msgs))
+	records := make([]arrow.RecordBatch, len(msgs))
 	for i, msg := range msgs {
 		records[i] = msg.Record
 	}

@@ -3,10 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
-	"github.com/cloudquery/cloudquery/cli/internal/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/specs/v0"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/auth"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/specs/v0"
 	"github.com/cloudquery/plugin-pb-go/managedplugin"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -45,14 +46,15 @@ func installPlugin(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	log.Info().Strs("args", args).Msg("Loading spec(s)")
 	fmt.Printf("Loading spec(s) from %s\n", strings.Join(args, ", "))
-	specReader, err := specs.NewSpecReader(args)
+	specReader, err := specs.NewRelaxedSpecReader(args)
 	if err != nil {
 		return fmt.Errorf("failed to load spec(s) from %s. Error: %w", strings.Join(args, ", "), err)
 	}
 	sources := specReader.Sources
 	destinations := specReader.Destinations
+	transformers := specReader.Transformers
 
-	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, destinations)
+	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, destinations, transformers)
 	if err != nil {
 		return fmt.Errorf("failed to get auth token: %w", err)
 	}
@@ -60,11 +62,18 @@ func installPlugin(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get team name: %w", err)
 	}
+
+	pluginVersionWarner, _ := managedplugin.NewPluginVersionWarner(log.Logger, authToken.Value)
+	specs.WarnOnOutdatedVersions(ctx, pluginVersionWarner, sources, destinations, transformers, specs.WithUpgradeCheckRecommendation(args, os.Stdout))
+
 	opts := []managedplugin.Option{
 		managedplugin.WithNoExec(),
 		managedplugin.WithLogger(log.Logger),
 		managedplugin.WithAuthToken(authToken.Value),
 		managedplugin.WithTeamName(teamName),
+	}
+	if logConsole {
+		opts = append(opts, managedplugin.WithNoProgress())
 	}
 	if cqDir != "" {
 		opts = append(opts, managedplugin.WithDirectory(cqDir))
@@ -97,11 +106,28 @@ func installPlugin(cmd *cobra.Command, args []string) error {
 		}
 		destinationRegInferred[i] = destination.RegistryInferred()
 	}
+
+	transformerPluginConfigs := make([]managedplugin.Config, len(transformers))
+	transformerRegInferred := make([]bool, len(transformers))
+	for i, transformer := range transformers {
+		transformerPluginConfigs[i] = managedplugin.Config{
+			Name:       transformer.Name,
+			Version:    transformer.Version,
+			Path:       transformer.Path,
+			Registry:   SpecRegistryToPlugin(transformer.Registry),
+			DockerAuth: transformer.DockerRegistryAuthToken,
+		}
+		transformerRegInferred[i] = transformer.RegistryInferred()
+	}
+
 	if clist, err := managedplugin.NewClients(ctx, managedplugin.PluginSource, sourcePluginConfigs, opts...); err != nil {
 		return enrichClientError(clist, sourceRegInferred, err)
 	}
 	if clist, err := managedplugin.NewClients(ctx, managedplugin.PluginDestination, destinationPluginConfigs, opts...); err != nil {
 		return enrichClientError(clist, destinationRegInferred, err)
+	}
+	if clist, err := managedplugin.NewClients(ctx, managedplugin.PluginTransformer, transformerPluginConfigs, opts...); err != nil {
+		return enrichClientError(clist, transformerRegInferred, err)
 	}
 
 	return nil
@@ -132,5 +158,5 @@ func enrichClientError(clientsList managedplugin.Clients, inferredList []bool, e
 		return err
 	}
 
-	return fmt.Errorf("%w. Hint: make sure to use the latest plugin version from hub.cloudquery.io or to keep using an outdated version add `registry: github` to your configuration", err)
+	return fmt.Errorf("%w. Hint: make sure to use the latest plugin version from www.cloudquery.io/hub or to keep using an outdated version add `registry: github` to your configuration", err)
 }

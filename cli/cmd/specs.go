@@ -7,123 +7,31 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudquery/cloudquery/cli/internal/specs/v0"
 	"github.com/cloudquery/plugin-pb-go/pb/plugin/v3"
-	pbSpecs "github.com/cloudquery/plugin-pb-go/specs"
 	"github.com/rs/zerolog/log"
-	"github.com/santhosh-tekuri/jsonschema/v5"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func CLIRegistryToPbRegistry(registry specs.Registry) pbSpecs.Registry {
-	switch registry {
-	case specs.RegistryGitHub:
-		return pbSpecs.RegistryGithub
-	case specs.RegistryLocal:
-		return pbSpecs.RegistryLocal
-	case specs.RegistryGRPC:
-		return pbSpecs.RegistryGrpc
-	case specs.RegistryCloudQuery:
-		return pbSpecs.RegistryCloudQuery
-	default:
-		panic(fmt.Sprintf("unknown registry %q", registry.String()))
-	}
-}
-
-// This converts CLI configuration to a source spec prior to V3 version
-// when our spec wasn't decoupled from the over the wire protocol
-func CLISourceSpecToPbSpec(spec specs.Source) pbSpecs.Source {
-	return pbSpecs.Source{
-		Name:                spec.Name,
-		Version:             spec.Version,
-		Path:                spec.Path,
-		Registry:            CLIRegistryToPbRegistry(spec.Registry),
-		Tables:              spec.Tables,
-		SkipTables:          spec.SkipTables,
-		SkipDependentTables: spec.SkipDependentTables,
-		Destinations:        spec.Destinations,
-		Spec:                spec.Spec,
-		DeterministicCQID:   spec.DeterministicCQID,
-	}
-}
-
-func CLIWriteModeToPbWriteMode(writeMode specs.WriteMode) pbSpecs.WriteMode {
-	switch writeMode {
-	case specs.WriteModeAppend:
-		return pbSpecs.WriteModeAppend
-	case specs.WriteModeOverwrite:
-		return pbSpecs.WriteModeOverwrite
-	case specs.WriteModeOverwriteDeleteStale:
-		return pbSpecs.WriteModeOverwriteDeleteStale
-	default:
-		panic(fmt.Sprintf("unknown write mode %q", writeMode.String()))
-	}
-}
-
-func CLIMigrateModeToPbMigrateMode(migrateMode specs.MigrateMode) pbSpecs.MigrateMode {
-	switch migrateMode {
-	case specs.MigrateModeSafe:
-		return pbSpecs.MigrateModeSafe
-	case specs.MigrateModeForced:
-		return pbSpecs.MigrateModeForced
-	default:
-		panic(fmt.Sprintf("unknown migrate mode %q", migrateMode.String()))
-	}
-}
-
-func CLIPkModeToPbPKMode(pkMode specs.PKMode) pbSpecs.PKMode {
-	switch pkMode {
-	case specs.PKModeCQID:
-		return pbSpecs.PKModeCQID
-	case specs.PKModeDefaultKeys:
-		return pbSpecs.PKModeDefaultKeys
-	default:
-		panic(fmt.Sprintf("unknown pk mode %q", pkMode.String()))
-	}
-}
-
-func CLIDestinationSpecToPbSpec(spec specs.Destination) pbSpecs.Destination {
-	return pbSpecs.Destination{
-		Name:        spec.Name,
-		Version:     spec.Version,
-		Path:        spec.Path,
-		Registry:    CLIRegistryToPbRegistry(spec.Registry),
-		WriteMode:   CLIWriteModeToPbWriteMode(spec.WriteMode),
-		MigrateMode: CLIMigrateModeToPbMigrateMode(spec.MigrateMode),
-		PKMode:      CLIPkModeToPbPKMode(spec.PKMode),
-		Spec:        spec.Spec,
-	}
-}
-
 // initPlugin is a simple wrapper that will try to validate the spec before actually passing it to Init.
 func initPlugin(ctx context.Context, client plugin.PluginClient, spec map[string]any, noConnection bool, syncID string) error {
-	if !noConnection {
-		// perform spec validation
-		if err := validatePluginSpec(ctx, client, spec); err != nil {
-			log.Warn().Err(err).Msg("plugin spec validation failed, but continuing with Init")
-		}
-	}
-
-	var (
-		specBytes []byte
-		err       error
-	)
-
-	if len(spec) == 0 { // All nil or empty values to be marshaled as null
-		specBytes = []byte(`null`)
-	} else {
-		specBytes, err = json.Marshal(spec)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = client.Init(ctx, &plugin.Init_Request{Spec: specBytes, NoConnection: noConnection, InvocationId: syncID})
+	_, err := initPluginWithResponse(ctx, client, spec, noConnection, syncID)
 	return err
 }
 
-// validatePluginSpec encompasses spec validation only:
+func initPluginWithResponse(ctx context.Context, client plugin.PluginClient, spec map[string]any, noConnection bool, syncID string) (*plugin.Init_Response, error) {
+	specBytes, err := marshalSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.Init(ctx, &plugin.Init_Request{Spec: specBytes, NoConnection: noConnection, InvocationId: syncID})
+}
+
+// validatePluginSpec encompasses spec validation against a plugin obtained
+// over gRPC. Schema acquisition and validation are kept lenient so that a
+// buggy or out-of-date plugin cannot block validation entirely:
 //  1. Get spec schema from the plugin.
 //     If the call isn't implemented, just skip the validation.
 //  2. Validate that the provided JSON schema is valid & can be used for spec validation.
@@ -145,8 +53,15 @@ func validatePluginSpec(ctx context.Context, client plugin.PluginClient, spec an
 			return err
 		}
 	}
+	return validateSpecAgainstSchema(schema.GetJsonSchema(), spec)
+}
 
-	jsonSchema := schema.GetJsonSchema()
+// validateSpecAgainstSchema validates spec against a JSON schema string.
+// Mirrors the lenient gRPC-side semantics: an empty or unparseable schema
+// is logged and treated as "skip validation". Used both by validatePluginSpec
+// (after a successful gRPC GetSpecSchema) and by the Hub-API path in
+// validateConfig.
+func validateSpecAgainstSchema(jsonSchema string, spec any) error {
 	if len(jsonSchema) == 0 {
 		// This will also be true for Unimplemented response (schema = nil => schema.GetJsonSchema() = "")
 		log.Info().Msg("empty JSON schema for plugin spec, skipping validation")
@@ -164,16 +79,21 @@ func validatePluginSpec(ctx context.Context, client plugin.PluginClient, spec an
 
 func parseJSONSchema(jsonSchema string) (*jsonschema.Schema, error) {
 	c := jsonschema.NewCompiler()
-	c.Draft = jsonschema.Draft2020
-	c.AssertFormat = true
+	c.DefaultDraft(jsonschema.Draft2020)
+	c.AssertFormat()
 
-	if err := c.AddResource("schema.json", strings.NewReader(jsonSchema)); err != nil {
+	s, err := jsonschema.UnmarshalJSON(strings.NewReader(jsonSchema))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.AddResource("schema.json", s); err != nil {
 		return nil, err
 	}
 
 	sc, err := c.Compile("schema.json")
 	if err != nil {
-		var se *jsonschema.SchemaError
+		var se *jsonschema.SchemaValidationError
 		if errors.As(err, &se); se != nil && se.Err != nil {
 			// We add resource as `file`, but there's none, actually.
 			// So, we need to prettify message a bit.
@@ -184,4 +104,13 @@ func parseJSONSchema(jsonSchema string) (*jsonschema.Schema, error) {
 	}
 
 	return sc, nil
+}
+
+func marshalSpec(spec map[string]any) ([]byte, error) {
+	// All nil or empty values to be marshaled as null
+	if len(spec) == 0 {
+		return []byte(`null`), nil
+	}
+
+	return json.Marshal(spec)
 }

@@ -133,24 +133,6 @@ func TestSpecJSONSchema(t *testing.T) {
 			Err:  true,
 		},
 		{
-			Name: "empty client_id",
-			Spec: `{"format": "csv", "brokers": ["abc"], "client_id": ""}`,
-		},
-		{
-			Name: "null client_id",
-			Spec: `{"format": "csv", "brokers": ["abc"], "client_id": null}`,
-			Err:  true,
-		},
-		{
-			Name: "integer client_id",
-			Spec: `{"format": "csv", "brokers": ["abc"], "client_id": 123}`,
-			Err:  true,
-		},
-		{
-			Name: "proper client_id",
-			Spec: `{"format": "csv", "brokers": ["abc"], "client_id": "abc"}`,
-		},
-		{
 			Name: "zero batch_size",
 			Spec: `{"format": "csv", "brokers": ["abc"], "batch_size": 0}`,
 			Err:  true,
@@ -178,6 +160,21 @@ func TestSpecJSONSchema(t *testing.T) {
 		{
 			Name: "proper batch_size",
 			Spec: `{"format": "csv", "brokers": ["abc"], "batch_size": 100}`,
+		},
+
+		{
+			Name: "proper num_partitions",
+			Spec: `{"format": "csv", "brokers": ["abc"], "topic_details": {"num_partitions": 10}}`,
+		},
+
+		{
+			Name: "proper replication_factor",
+			Spec: `{"format": "csv", "brokers": ["abc"], "topic_details": {"replication_factor": 10}}`,
+		},
+
+		{
+			Name: "proper replication_factor and num_partitions",
+			Spec: `{"format": "csv", "brokers": ["abc"], "topic_details": {"num_partitions": 10, "replication_factor": 10}}`,
 		},
 	})
 }

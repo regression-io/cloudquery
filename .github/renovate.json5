@@ -1,44 +1,149 @@
 {
   extends: [
-    "github>cloudquery/.github//.github/renovate-go-default.json5",
-    "github>cloudquery/.github//.github/renovate-node-default.json5",
-    "github>cloudquery/.github//.github/renovate-python-default.json5",
+    'github>cloudquery/.github//.github/renovate-go-default.json5',
+    'github>cloudquery/.github//.github/renovate-node-default.json5',
+    'github>cloudquery/.github//.github/renovate-python-default.json5',
   ],
-  regexManagers: [
+  customManagers: [
     {
-      fileMatch: ["Dockerfile$"],
-      matchStrings: ["GORELEASER_VERSION=(?<currentValue>.*)-pro$"],
-      extractVersionTemplate: "^(?<version>.+)-pro$",
-      depNameTemplate: "goreleaser/goreleaser-pro",
-      datasourceTemplate: "github-releases",
+      customType: "regex",
+      fileMatch: [
+        ".github/workflows/.*\\.ya?ml$"
+      ],
+      matchStrings: [
+        'image:\\s*ghcr\\.io/gythialy/golang-cross:(?<currentValue>\\d+\\.\\d+\\.\\d+)'
+      ],
+      depNameTemplate: "ghcr.io/gythialy/golang-cross",
+      datasourceTemplate: "docker",
+      versioningTemplate: "semver"
     },
+    {
+      customType: "regex",
+      fileMatch: [
+        "(^|/)Dockerfile$"
+      ],
+      matchStrings: [
+        'npm install --global corepack@(?<currentValue>\\d+\\.\\d+\\.\\d+)'
+      ],
+      depNameTemplate: "corepack",
+      datasourceTemplate: "npm"
+    }
   ],
   packageRules: [
-    { matchFileNames: ["website/**"], groupName: "Website" },
     {
-      matchPackageNames: ["github.com/jackc/pgx/v4"],
-      allowedVersions: "<5",
+      matchFileNames: [
+        'website/**',
+      ],
+      groupName: 'Website',
     },
     {
-      matchPackageNames: ["github.com/cloudquery/plugin-pb-go", "github.com/cloudquery/cloudquery-api-go"],
-      matchFileNames: ["plugins/**"],
-      enabled: false,
+      matchPackageNames: ['mongo'],
+      allowedVersions: '3.6',
     },
     {
-      matchPackageNames: ["github.com/marcboeker/go-duckdb"],
-      matchFileNames: ["plugins/destination/motherduck/**", "plugins/destination/duckdb/**"],
+      matchPackageNames: [
+        'github.com/jackc/pgx/v4',
+      ],
+      allowedVersions: '<5',
+    },
+    {
+      matchPackageNames: ['mysql'],
+      allowedVersions: '8.0',
+    },
+    {
+      matchPackageNames: [
+        'github.com/cloudquery/plugin-pb-go',
+        'github.com/cloudquery/cloudquery-api-go',
+      ],
+      matchFileNames: [
+        'plugins/**',
+      ],
       enabled: false,
+    },
+     {
+      matchPackageNames: ['postgres'],
+      allowedVersions: '10',
+    },
+    {
+      matchPackageNames: ['getmeili/meilisearch'],
+      allowedVersions: '1.6.2',
+    },
+    {
+      matchPackageNames: ['clickhouse/clickhouse-server'],
+      allowedVersions: '24.8.1',
+    },
+    {
+      matchPackageNames: ['cockroachdb/cockroach'],
+      allowedVersions: '22.1.8',
+    },
+    {
+      matchPackageNames: [
+        'github.com/marcboeker/go-duckdb',
+      ],
+      matchFileNames: [
+        'plugins/destination/duckdb/**',
+      ],
+      allowedVersions: "<=2.1.0",
+    },
+    {
+      matchPackageNames: [
+        '@cloudquery/plugin-config-ui-connector',
+        '@cloudquery/plugin-config-ui-lib',
+      ],
+      commitMessagePrefix: 'chore(deps): ',
+      groupName: 'CloudQuery Plugin Config UI packages',
+    },
+    {
+      matchDatasources: ["golang-version"],
+      rangeStrategy: "bump",
+      addLabels: ["no automerge"],
+      schedule: ["before 3am on Saturday"],
+    },
+    {
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/gythialy/golang-cross"],
+      rangeStrategy: "bump",
+      addLabels: ["no automerge"],
+      schedule: ["before 3am on Saturday"],
+    },
+    {
+      matchPackageNames: ['elasticsearch'],
+      allowedVersions: '8.6.0',
+    },
+    {
+      matchPackageNames: ['neo4j'],
+      allowedVersions: '4.4',
+    },
+    {
+      matchPackageNames: ['mcr.microsoft.com/mssql/server'],
+      allowedVersions: '2019',
+    },
+    {
+      // typescript-eslint cannot support TS 7 until TS 7 exposes a public API; its peer
+      // range is still <6.1.0. Tracked upstream in typescript-eslint/typescript-eslint#10940.
+      matchPackageNames: ['typescript'],
+      allowedVersions: '<7',
     },
   ],
   ignorePaths: [
-    "plugins/source/aws/**",
-    "plugins/source/azure/**",
-    "plugins/source/gcp/**",
+    'plugins/source/aws/**',
+    'plugins/source/azure/**',
+    'plugins/source/gcp/**',
   ],
   gomod: {
-    fileMatch: ["go\\.mod\\.tpl$"],
+    fileMatch: [
+      'go\\.mod\\.tpl$',
+    ],
   },
-  "github-actions": {
-    fileMatch: ["\\.yaml\\.tpl$"],
+  dockerfile: {
+    fileMatch: [
+      'Dockerfile\\.goreleaser$',
+      'Dockerfile\\.ubuntu\\.goreleaser$',
+    ],
+  },
+  'github-actions': {
+    fileMatch: [
+      '\\.yaml\\.tpl$',
+    ],
   },
 }

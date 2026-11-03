@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/decimal128"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/decimal128"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/scalar"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/jackc/pgx/v5"
@@ -22,7 +22,7 @@ const (
 	readSQL = "SELECT %s FROM %s"
 )
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	colNames := make([]string, 0, len(table.Columns))
 	for _, col := range table.Columns {
 		if c.pgType == pgTypeCrateDB {
@@ -57,7 +57,7 @@ func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow
 			}
 			scalar.AppendToBuilder(rb.Field(i), s)
 		}
-		res <- rb.NewRecord()
+		res <- rb.NewRecordBatch()
 	}
 	rows.Close()
 	return nil

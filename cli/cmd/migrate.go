@@ -3,11 +3,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
-	"github.com/cloudquery/cloudquery/cli/internal/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/specs/v0"
+	cqplatform "github.com/cloudquery/cloudquery/cli/v6/internal/platform"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/specs/v0"
 	"github.com/cloudquery/plugin-pb-go/managedplugin"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -32,6 +33,8 @@ func NewCmdMigrate() *cobra.Command {
 		RunE:    migrate,
 	}
 	cmd.Flags().String("license", "", "set offline license file")
+	cmd.Flags().Bool("cq-columns-not-null", false, "Force CloudQuery internal columns to be NOT NULL. This feature is in Preview. Please provide feedback to help us improve it.")
+	_ = cmd.Flags().MarkHidden("cq-columns-not-null")
 	return cmd
 }
 
@@ -46,6 +49,11 @@ func migrate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	cqColumnsNotNull, err := cmd.Flags().GetBool("cq-columns-not-null")
+	if err != nil {
+		return err
+	}
+
 	ctx := cmd.Context()
 	log.Info().Strs("args", args).Msg("Loading spec(s)")
 	fmt.Printf("Loading spec(s) from %s\n", strings.Join(args, ", "))
@@ -55,20 +63,34 @@ func migrate(cmd *cobra.Command, args []string) error {
 	}
 	sources := specReader.Sources
 	destinations := specReader.Destinations
+	transformers := specReader.Transformers
 
-	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, destinations)
-	if err != nil {
-		return fmt.Errorf("failed to get auth token: %w", err)
+	transformerSpecsByName := make(map[string]specs.Transformer)
+	for _, transformer := range transformers {
+		transformerSpecsByName[transformer.Name] = *transformer
 	}
-	teamName, err := auth.GetTeamForToken(ctx, authToken)
+
+	// dlToken/teamName authenticate plugin download against cloud (headless
+	// cqpd_ token, else cloud login). See cqplatform.DownloadAuth.
+	dlToken, teamName, err := cqplatform.DownloadAuth(ctx, log.Logger, sources, destinations, transformers)
 	if err != nil {
-		return fmt.Errorf("failed to get team name: %w", err)
+		return err
 	}
+	// Headless cqpd_: let plugins authenticate premium-table validation + usage
+	// against cloud (they read CLOUDQUERY_API_KEY from their inherited env).
+	cqplatform.PropagatePluginCredential(dlToken)
+
+	pluginVersionWarner, _ := managedplugin.NewPluginVersionWarner(log.Logger, dlToken)
+	specs.WarnOnOutdatedVersions(ctx, pluginVersionWarner, sources, destinations, transformers, specs.WithUpgradeCheckRecommendation(args, os.Stdout))
+
 	opts := []managedplugin.Option{
 		managedplugin.WithLogger(log.Logger),
-		managedplugin.WithAuthToken(authToken.Value),
+		managedplugin.WithAuthToken(dlToken),
 		managedplugin.WithTeamName(teamName),
 		managedplugin.WithLicenseFile(licenseFile),
+	}
+	if logConsole {
+		opts = append(opts, managedplugin.WithNoProgress())
 	}
 	if cqDir != "" {
 		opts = append(opts, managedplugin.WithDirectory(cqDir))
@@ -100,6 +122,18 @@ func migrate(cmd *cobra.Command, args []string) error {
 		}
 		destinationRegInferred[i] = destination.RegistryInferred()
 	}
+	transformerPluginConfigs := make([]managedplugin.Config, len(transformers))
+	transformerRegInferred := make([]bool, len(transformers))
+	for i, transformer := range transformers {
+		transformerPluginConfigs[i] = managedplugin.Config{
+			Name:       transformer.Name,
+			Version:    transformer.Version,
+			Path:       transformer.Path,
+			Registry:   SpecRegistryToPlugin(transformer.Registry),
+			DockerAuth: transformer.DockerRegistryAuthToken,
+		}
+		transformerRegInferred[i] = transformer.RegistryInferred()
+	}
 
 	managedSourceClients, err := managedplugin.NewClients(ctx, managedplugin.PluginSource, sourcePluginConfigs, opts...)
 	if err != nil {
@@ -110,6 +144,10 @@ func migrate(cmd *cobra.Command, args []string) error {
 			fmt.Println(err)
 		}
 	}()
+	sourceVersions, err := sourceProtocolVersions(ctx, sources, managedSourceClients)
+	if err != nil {
+		return err
+	}
 	destinationPluginClients, err := managedplugin.NewClients(ctx, managedplugin.PluginDestination, destinationPluginConfigs, opts...)
 	if err != nil {
 		return enrichClientError(destinationPluginClients, destinationRegInferred, err)
@@ -119,20 +157,29 @@ func migrate(cmd *cobra.Command, args []string) error {
 			fmt.Println(err)
 		}
 	}()
+	transformerPluginClients, err := managedplugin.NewClients(ctx, managedplugin.PluginTransformer, transformerPluginConfigs, opts...)
+	if err != nil {
+		return enrichClientError(transformerPluginClients, transformerRegInferred, err)
+	}
+	defer func() {
+		if err := transformerPluginClients.Terminate(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	for _, source := range sources {
 		cl := managedSourceClients.ClientByName(source.Name)
-		versions, err := cl.Versions(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get source versions: %w", err)
-		}
-		maxVersion := findMaxCommonVersion(versions, []int{3, 2, 1, 0})
+		maxVersion := sourceVersions[source.Name]
 
 		var destinationClientsForSource []*managedplugin.Client
 		var destinationForSourceSpec []specs.Destination
+		transformersForDestination := make(map[string][]*managedplugin.Client)
 		for _, destination := range destinations {
 			if slices.Contains(source.Destinations, destination.Name) {
 				destinationClientsForSource = append(destinationClientsForSource, destinationPluginClients.ClientByName(destination.Name))
 				destinationForSourceSpec = append(destinationForSourceSpec, *destination)
+				for _, transformerName := range destination.Transformers {
+					transformersForDestination[destination.Name] = append(transformersForDestination[destination.Name], transformerPluginClients.ClientByName(transformerName))
+				}
 			}
 		}
 		switch maxVersion {
@@ -146,27 +193,18 @@ func migrate(cmd *cobra.Command, args []string) error {
 					return fmt.Errorf("destination plugin %[1]s does not support CloudQuery protocol version 3, required by the %[2]s source plugin. Please upgrade to a newer version of the %[1]s destination plugin", destination.Name(), source.Name)
 				}
 			}
-			if err := migrateConnectionV3(ctx, cl, destinationClientsForSource, *source, destinationForSourceSpec); err != nil {
+
+			migrateOptions := migrateV3Options{
+				sourceClient:               cl,
+				destinationsClients:        destinationClientsForSource,
+				sourceSpec:                 *source,
+				destinationSpecs:           destinationForSourceSpec,
+				transformersForDestination: transformersForDestination,
+				transformerSpecsByName:     transformerSpecsByName,
+				cqColumnsNotNull:           cqColumnsNotNull,
+			}
+			if err := migrateConnectionV3(ctx, migrateOptions); err != nil {
 				return fmt.Errorf("failed to migrate v3 source %s: %w", cl.Name(), err)
-			}
-		case 2:
-			destinationsVersions := make([][]int, 0, len(destinationClientsForSource))
-			for _, destination := range destinationClientsForSource {
-				versions, err := destination.Versions(ctx)
-				if err != nil {
-					return fmt.Errorf("failed to get destination versions: %w", err)
-				}
-				if !slices.Contains(versions, 1) {
-					return fmt.Errorf("destination plugin %[1]s does not support CloudQuery SDK version 1. Please upgrade to a newer version of the %[1]s destination plugin", destination.Name())
-				}
-				destinationsVersions = append(destinationsVersions, versions)
-			}
-			if err := migrateConnectionV2(ctx, cl, destinationClientsForSource, *source, destinationForSourceSpec, destinationsVersions); err != nil {
-				return fmt.Errorf("failed to migrate source %v@%v: %w", source.Name, source.Version, err)
-			}
-		case 1:
-			if err := migrateConnectionV1(ctx, cl, destinationClientsForSource, *source, destinationForSourceSpec); err != nil {
-				return fmt.Errorf("failed to migrate source %v@%v: %w", source.Name, source.Version, err)
 			}
 		case 0:
 			return errors.New("please upgrade your source or use a CLI version between v3.0.1 and v3.5.3")

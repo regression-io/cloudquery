@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/cloudquery/cloudquery/plugins/destination/s3/client/spec"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/cloudquery/cloudquery/plugins/destination/s3/v7/client/spec"
 	"github.com/cloudquery/filetypes/v4"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
@@ -42,10 +42,12 @@ func TestPlugin(t *testing.T) {
 		}
 
 		t.Run("generic/"+string(ft), func(t *testing.T) {
+			t.Parallel()
 			testPlugin(t, &s)
 		})
 
 		t.Run("write/"+string(ft), func(t *testing.T) {
+			t.Parallel()
 			testPluginCustom(t, &s)
 		})
 	}
@@ -108,7 +110,7 @@ func testPluginCustom(t *testing.T, s *spec.Spec) {
 
 	bldr := array.NewRecordBuilder(memory.DefaultAllocator, table.ToArrowSchema())
 	bldr.Field(0).(*array.StringBuilder).Append("foo")
-	record := bldr.NewRecord()
+	record := bldr.NewRecordBatch()
 
 	if err := p.WriteAll(ctx, []message.WriteMessage{
 		&message.WriteInsert{
@@ -125,24 +127,24 @@ func testPluginCustom(t *testing.T, s *spec.Spec) {
 		t.Fatal(fmt.Errorf("failed to close client: %w", err))
 	}
 
-	readRecords, err := readAll(ctx, client, table)
-	if err != nil {
-		t.Fatal(fmt.Errorf("failed to sync: %w", err))
-	}
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		readRecords, err := readAll(ctx, client, table)
+		assert.NoError(c, err)
 
-	totalItems := plugin.TotalRows(readRecords)
-	assert.Equalf(t, int64(2), totalItems, "expected 2 items, got %d", totalItems)
+		totalItems := plugin.TotalRows(readRecords)
+		assert.Equalf(c, int64(2), totalItems, "expected 2 items, got %d", totalItems)
+	}, 2*time.Second, 100*time.Millisecond)
 }
 
-func readAll(ctx context.Context, client plugin.Client, table *schema.Table) ([]arrow.Record, error) {
+func readAll(ctx context.Context, client plugin.Client, table *schema.Table) ([]arrow.RecordBatch, error) {
 	var err error
-	ch := make(chan arrow.Record)
+	ch := make(chan arrow.RecordBatch)
 	go func() {
 		defer close(ch)
 		err = client.Read(ctx, table, ch)
 	}()
 	// nolint:prealloc
-	var records []arrow.Record
+	var records []arrow.RecordBatch
 	for record := range ch {
 		records = append(records, record)
 	}

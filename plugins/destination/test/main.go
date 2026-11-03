@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/cloudquery/cloudquery/plugins/destination/test/client"
-	internalPlugin "github.com/cloudquery/cloudquery/plugins/destination/test/resources/plugin"
+	"github.com/cloudquery/cloudquery/plugins/destination/test/v2/client"
+	internalPlugin "github.com/cloudquery/cloudquery/plugins/destination/test/v2/resources/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/serve"
 )
@@ -18,6 +18,7 @@ func main() {
 		plugin.WithKind(internalPlugin.Kind),
 		plugin.WithTeam(internalPlugin.Team),
 		plugin.WithJSONSchema(client.JSONSchema),
+		plugin.WithConnectionTester(client.TestConnection),
 	)
 	if err := serve.Plugin(p,
 		serve.WithDestinationV0V1Server(),

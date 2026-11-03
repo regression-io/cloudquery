@@ -7,78 +7,58 @@ concurrency:
 on:
   pull_request:
     paths:
-    - "plugins/destination/mssql/**"
-    - ".github/workflows/dest_mssql.yml"
+      - "plugins/destination/mssql/**"
+      - ".github/workflows/dest_mssql.yml"
   push:
     branches:
-    - main
+      - main
     paths:
-    - "plugins/destination/mssql/**"
-    - ".github/workflows/dest_mssql.yml"
+      - "plugins/destination/mssql/**"
+      - ".github/workflows/dest_mssql.yml"
+
+permissions:
+  contents: read
 
 jobs:
   plugins-destination-mssql:
     name: "plugins/destination/mssql"
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      DB_USER:     SA
-      DB_PASSWORD: yourStrongP@ssword
-      DB_NAME:     cloudquery
     defaults:
       run:
         working-directory: plugins/destination/mssql
-    services:
-      mssql:
-        image:   mcr.microsoft.com/mssql/server:2017-latest
-        env:
-          ACCEPT_EULA:       Y
-          MSSQL_PID:         Express
-          MSSQL_SA_PASSWORD: ${{ env.DB_PASSWORD }}
-          DB_USER:           ${{ env.DB_USER }}
-          DB_NAME:           ${{ env.DB_NAME }}
-        ports:
-        - 1433:1433
-        options: >-
-                 --health-cmd "/opt/mssql-tools/bin/sqlcmd -U $DB_USER -P $MSSQL_SA_PASSWORD -Q 'select 1' -b -o /dev/null"
-                 --health-interval 60s
-                 --health-timeout 30s
-                 --health-start-period 20s
-                 --health-retries 5
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
-    - name: Create Database
-      run:  >-
-            docker exec $(docker ps -alq) \
-              /opt/mssql-tools/bin/sqlcmd \
-              -U "$DB_USER" \
-              -P "$DB_PASSWORD" \
-              -Q "CREATE DATABASE $DB_NAME;"
-    - name: Set up Go 1.x
-      uses: actions/setup-go@v5
-      with:
-        go-version-file:       plugins/destination/mssql/go.mod
-        cache:                 true
-        cache-dependency-path: plugins/destination/mssql/go.sum
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        version: v1.55.2
-        working-directory: plugins/destination/mssql
-        args:              "--config ../../.golangci.yml"
-        skip-pkg-cache:    true
-        skip-build-cache:  true
-    - name: gen
-      if: github.event_name == 'pull_request'
-      run: make gen
-    - name: Fail if generation updated files
-      if: github.event_name == 'pull_request'
-      run: test "$(git status -s | wc -l)" -eq 0 || (git status -s; exit 1)
-    - run: go mod tidy
-    - name: Build
-      run:  go build .
-    - name: Test Microsoft SQL Server
-      run:  make test
-  
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+      - name: Set up Go 1.x
+        id: setup-go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: plugins/destination/mssql/go.mod
+          cache: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-destination-mssql-${{ hashFiles('plugins/destination/mssql/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-destination-mssql-
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
+          working-directory: plugins/destination/mssql
+          args: "--config ../../.golangci.yml"
+      - name: gen
+        if: github.event_name == 'pull_request'
+        run: make gen
+      - name: Fail if generation updated files
+        if: github.event_name == 'pull_request'
+        run: test "$(git status -s | wc -l)" -eq 0 || (git status -s; exit 1)
+      - run: go mod tidy
+      - name: Build
+        run: go build .
+      - name: Test Microsoft SQL Server
+        run: make test

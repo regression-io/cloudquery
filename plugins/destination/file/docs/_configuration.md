@@ -8,14 +8,20 @@ spec:
   registry: "cloudquery"
   version: "VERSION_DESTINATION_FILE"
   write_mode: "append"
+  send_sync_summary: true
+  # Learn more about the configuration options at https://cql.ink/file_destination
   spec:
     path: "path/to/files/{{TABLE}}/{{UUID}}.{{FORMAT}}"
     format: "parquet" # options: parquet, json, csv
     # Optional parameters
     # format_spec:
-      # CSV-specific parameters:
+      # CSV specific parameters:
       # delimiter: ","
       # skip_header: false
+      # Parquet specific parameters:
+      # version: "v2Latest"
+      # root_repetition: "repeated"
+      # max_row_group_length: 1048576 # 1024 * 1024 rows
     # compression: "" # options: gzip
     # no_rotate: false
     # batch_size: 10000
@@ -23,4 +29,4 @@ spec:
     # batch_timeout: 30s
 ```
 
-Note that the file plugin only supports `append` `write_mode`. The (top level) spec section is described in the [Destination Spec Reference](/docs/reference/destination-spec).
+Note that the file plugin only supports `append` `write_mode`. The (top level) spec section is described in the [Destination Spec Reference](https://www.cloudquery.io/docs/cli/integrations/destinations#complete-destination-spec-reference).

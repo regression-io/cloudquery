@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	gremlingo "github.com/apache/tinkerpop/gremlin-go/v3/driver"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
 
-func (c *Client) Read(_ context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(_ context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	session, closer, err := c.newSession()
 	if err != nil {
 		return err
 	}
 	defer closer()
 
-	g := gremlingo.Traversal_().WithRemote(session).
+	g := gremlingo.Traversal_().With(session).
 		V().
 		HasLabel(table.Name).
 		Group().By(gremlingo.T.Id).

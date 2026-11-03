@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
@@ -43,16 +43,20 @@ func (c *Client) sqliteTables(tables schema.Tables) (schema.Tables, error) {
 			return nil, err
 		}
 		for _, col := range info.columns {
-			columns = append(columns, schema.Column{
-				Name:       col.name,
-				Type:       c.sqliteTypeToArrowType(col.typ),
-				PrimaryKey: col.pk != 0,
-				NotNull:    col.notNull,
-			})
+			columns = append(columns, c.sqliteColumn(col.name, col.typ, col.pk != 0, col.notNull))
 		}
 		schemaTables = append(schemaTables, &schema.Table{Name: table.Name, Columns: columns})
 	}
 	return schemaTables, nil
+}
+
+func (c *Client) sqliteColumn(name string, sqliteType string, primaryKey bool, notNull bool) schema.Column {
+	return schema.Column{
+		Name:       name,
+		Type:       c.sqliteTypeToArrowType(sqliteType),
+		PrimaryKey: primaryKey,
+		NotNull:    notNull,
+	}
 }
 
 func (c *Client) normalizeTables(tables schema.Tables) schema.Tables {
@@ -82,21 +86,19 @@ func (c *Client) normalizeField(field arrow.Field) *arrow.Field {
 	}
 }
 
-func (c *Client) nonAutoMigratableTables(tables schema.Tables, sqliteTables schema.Tables) ([]string, [][]schema.TableColumnChange) {
-	var result []string
-	var tableChanges [][]schema.TableColumnChange
+func (*Client) nonAutoMigratableTables(tables schema.Tables, sqliteTables schema.Tables, safeTables map[string]bool) map[string][]schema.TableColumnChange {
+	result := make(map[string][]schema.TableColumnChange)
 	for _, t := range tables {
 		sqliteTable := sqliteTables.Get(t.Name)
 		if sqliteTable == nil {
 			continue
 		}
 		changes := sqliteTable.GetChanges(t)
-		if !c.canAutoMigrate(changes) {
-			result = append(result, t.Name)
-			tableChanges = append(tableChanges, changes)
+		if safeTables[t.Name] && !canAutoMigrate(changes) {
+			result[t.Name] = changes
 		}
 	}
-	return result, tableChanges
+	return result
 }
 
 func (c *Client) autoMigrateTable(ctx context.Context, table *schema.Table, changes []schema.TableColumnChange) error {
@@ -110,7 +112,7 @@ func (c *Client) autoMigrateTable(ctx context.Context, table *schema.Table, chan
 	return nil
 }
 
-func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
+func canAutoMigrate(changes []schema.TableColumnChange) bool {
 	for _, change := range changes {
 		switch change.Type {
 		case schema.TableColumnChangeTypeAdd:
@@ -132,51 +134,53 @@ func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
 
 // This is the responsibility of the CLI of the client to lock before running migration
 func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTables) error {
+	allTables := make(schema.Tables, 0, len(msgs))
+	safeTables := make(map[string]bool)
 	for _, msg := range msgs {
-		force := msg.MigrateForce
-		tables := schema.Tables{msg.Table}
-		normalizedTables := c.normalizeTables(tables)
-		sqliteTables, err := c.sqliteTables(normalizedTables)
-		if err != nil {
-			return err
+		allTables = append(allTables, msg.Table)
+		safeTables[msg.Table.Name] = !msg.MigrateForce
+	}
+
+	normalizedTables := c.normalizeTables(allTables)
+	sqliteTables, err := c.sqliteTables(normalizedTables)
+	if err != nil {
+		return err
+	}
+
+	nonAutoMigratableTables := c.nonAutoMigratableTables(normalizedTables, sqliteTables, safeTables)
+	if len(nonAutoMigratableTables) > 0 {
+		return fmt.Errorf("\nCan't migrate tables automatically, migrate manually or consider using 'migrate_mode: forced'. Non auto migratable tables changes:\n\n%s", schema.GetChangesSummary(nonAutoMigratableTables))
+	}
+
+	for _, table := range normalizedTables {
+		c.logger.Info().Str("table", table.Name).Msg("Migrating table")
+		if len(table.Columns) == 0 {
+			c.logger.Info().Str("table", table.Name).Msg("Table with no columns, skipping")
+			continue
 		}
 
-		if !force {
-			nonAutoMigratableTables, changes := c.nonAutoMigratableTables(normalizedTables, sqliteTables)
-			if len(nonAutoMigratableTables) > 0 {
-				return fmt.Errorf("tables %s with changes %v require migration. Migrate manually or consider using 'migrate_mode: forced'", strings.Join(nonAutoMigratableTables, ","), changes)
+		sqlite := sqliteTables.Get(table.Name)
+		if sqlite == nil {
+			c.logger.Debug().Str("table", table.Name).Msg("Table doesn't exist, creating")
+			if err := c.createTableIfNotExist(table); err != nil {
+				return err
 			}
-		}
-
-		for _, table := range normalizedTables {
-			c.logger.Info().Str("table", table.Name).Msg("Migrating table")
-			if len(table.Columns) == 0 {
-				c.logger.Info().Str("table", table.Name).Msg("Table with no columns, skipping")
-				continue
-			}
-
-			sqlite := sqliteTables.Get(table.Name)
-			if sqlite == nil {
-				c.logger.Debug().Str("table", table.Name).Msg("Table doesn't exist, creating")
-				if err := c.createTableIfNotExist(table); err != nil {
+		} else {
+			changes := table.GetChanges(sqlite)
+			if canAutoMigrate(changes) {
+				c.logger.Info().Str("table", table.Name).Msg("Table exists, auto-migrating")
+				if err := c.autoMigrateTable(ctx, table, changes); err != nil {
 					return err
 				}
 			} else {
-				changes := table.GetChanges(sqlite)
-				if c.canAutoMigrate(changes) {
-					c.logger.Info().Str("table", table.Name).Msg("Table exists, auto-migrating")
-					if err := c.autoMigrateTable(ctx, table, changes); err != nil {
-						return err
-					}
-				} else {
-					c.logger.Info().Str("table", table.Name).Msg("Table exists, force migration required")
-					if err := c.recreateTable(ctx, table); err != nil {
-						return err
-					}
+				c.logger.Info().Str("table", table.Name).Msg("Table exists, force migration required")
+				if err := c.recreateTable(ctx, table); err != nil {
+					return err
 				}
 			}
 		}
 	}
+
 	return nil
 }
 

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
 const readCypher = "MATCH (t:%s) RETURN t"
@@ -78,14 +78,14 @@ func (c *Client) reverseTransform(f arrow.Field, bldr array.Builder, val any) er
 		if !ok {
 			return fmt.Errorf("unsupported type %T with builder %T", val, bldr)
 		}
-		if err := bldr.AppendValueFromString(v); err != nil {
+		if err := appendFromString(bldr, v); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *Client) reverseTransformer(table *schema.Table, node *neo4j.Node) (arrow.Record, error) {
+func (c *Client) reverseTransformer(table *schema.Table, node *neo4j.Node) (arrow.RecordBatch, error) {
 	sc := table.ToArrowSchema()
 	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
 	for i, f := range sc.Fields() {
@@ -93,11 +93,11 @@ func (c *Client) reverseTransformer(table *schema.Table, node *neo4j.Node) (arro
 			return nil, err
 		}
 	}
-	rec := bldr.NewRecord()
+	rec := bldr.NewRecordBatch()
 	return rec, nil
 }
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	stmt := fmt.Sprintf(readCypher, table.Name)
 
 	session := c.Session(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})

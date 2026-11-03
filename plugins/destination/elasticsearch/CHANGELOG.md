@@ -1,5 +1,663 @@
 # Changelog
 
+## [4.1.1](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v4.1.0...plugins-destination-elasticsearch-v4.1.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** Update go module directive to v1.27.3 ([#23580](https://github.com/cloudquery/cloudquery/issues/23580)) ([9d1c1b3](https://github.com/cloudquery/cloudquery/commit/9d1c1b37650263b7081296a5a5a0a77fbf8abf93))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.99.0 ([#23567](https://github.com/cloudquery/cloudquery/issues/23567)) ([e42450d](https://github.com/cloudquery/cloudquery/commit/e42450d1d35ee7d5c15af590ee7189088a2bb0e7))
+
+## [4.1.0](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v4.0.5...plugins-destination-elasticsearch-v4.1.0) (2026-10-08)
+
+
+### Features
+
+* Assess Elasticsearch schema impact without a connection ([#23479](https://github.com/cloudquery/cloudquery/issues/23479)) ([886440d](https://github.com/cloudquery/cloudquery/commit/886440d68d91b47054c0559bfe0e960fd90ccfd3))
+
+
+### Bug Fixes
+
+* **deps:** Update dependency pytest to v9.0.3 [SECURITY] ([#23069](https://github.com/cloudquery/cloudquery/issues/23069)) ([4f3b70b](https://github.com/cloudquery/cloudquery/commit/4f3b70b3324698820baf74f4f7060762699e8fa3))
+* **deps:** Update dependency pytest to v9.0.3 [SECURITY] ([#23114](https://github.com/cloudquery/cloudquery/issues/23114)) ([75a37bb](https://github.com/cloudquery/cloudquery/commit/75a37bb413b200f39e8f58a638b84996ecc57092))
+* **deps:** Update docker.elastic.co/elasticsearch/elasticsearch Docker tag to v9.4.4 ([#23180](https://github.com/cloudquery/cloudquery/issues/23180)) ([102048a](https://github.com/cloudquery/cloudquery/commit/102048a367e0cec5147e47d2db0302ca72f3297f))
+* **deps:** Update docker.elastic.co/elasticsearch/elasticsearch Docker tag to v9.5.2 ([#23316](https://github.com/cloudquery/cloudquery/issues/23316)) ([d03bdca](https://github.com/cloudquery/cloudquery/commit/d03bdca1a72e26e823714d44fb26163737e4eb3a))
+* **deps:** Update docker.elastic.co/elasticsearch/elasticsearch Docker tag to v9.5.4 ([#23424](https://github.com/cloudquery/cloudquery/issues/23424)) ([7e6965e](https://github.com/cloudquery/cloudquery/commit/7e6965e4c1af88e6dedf9594528203dfcac40485))
+* **deps:** Update go module directive to v1.26.5 ([#23182](https://github.com/cloudquery/cloudquery/issues/23182)) ([e8bc921](https://github.com/cloudquery/cloudquery/commit/e8bc9211beeec85bf5e76ab673968377a74f0cab))
+* **deps:** Update go module directive to v1.26.6 ([#23344](https://github.com/cloudquery/cloudquery/issues/23344)) ([bfc2d40](https://github.com/cloudquery/cloudquery/commit/bfc2d406c5a6806479ca5b2313977324bdcd7c70))
+* **deps:** Update go module directive to v1.27.1 ([#23402](https://github.com/cloudquery/cloudquery/issues/23402)) ([9e24c06](https://github.com/cloudquery/cloudquery/commit/9e24c066c451a1e3ae0576a45c9447e938909e19))
+* **deps:** Update golang.org/x/exp digest to 85c1c22 ([#23416](https://github.com/cloudquery/cloudquery/issues/23416)) ([e61961a](https://github.com/cloudquery/cloudquery/commit/e61961afe221a704e3adf6e023bd37a80408826c))
+* **deps:** Update golang.org/x/exp digest to e88cd73 ([#23298](https://github.com/cloudquery/cloudquery/issues/23298)) ([939a30f](https://github.com/cloudquery/cloudquery/commit/939a30f3c59426abe9686e5ab82da50d13d30c48))
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.7.0 ([#23163](https://github.com/cloudquery/cloudquery/issues/23163)) ([7df4831](https://github.com/cloudquery/cloudquery/commit/7df4831f6f83607541b187dd2bb40ad366465897))
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.8.0 ([#23409](https://github.com/cloudquery/cloudquery/issues/23409)) ([825ffd6](https://github.com/cloudquery/cloudquery/commit/825ffd66b700680e65d8119853b2b70072187ee7))
+* **deps:** Update module github.com/cenkalti/backoff/v6 to v7 ([#23226](https://github.com/cloudquery/cloudquery/issues/23226)) ([86b2c2f](https://github.com/cloudquery/cloudquery/commit/86b2c2fb1b37ed9f7a53cd8a3879a7ec1708e23a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.2 ([#23277](https://github.com/cloudquery/cloudquery/issues/23277)) ([d15a83d](https://github.com/cloudquery/cloudquery/commit/d15a83ddc3c2e8af081afa2745f1a54a9cec62ab))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.3 ([#23330](https://github.com/cloudquery/cloudquery/issues/23330)) ([2502476](https://github.com/cloudquery/cloudquery/commit/2502476eb0933484ce7acb933b3b3c31b2ad4dea))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.4 ([#23389](https://github.com/cloudquery/cloudquery/issues/23389)) ([c7dc863](https://github.com/cloudquery/cloudquery/commit/c7dc86388bdc63e5eb663fdd36d70e8f99226d0d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.6 ([#23414](https://github.com/cloudquery/cloudquery/issues/23414)) ([21c5ffe](https://github.com/cloudquery/cloudquery/commit/21c5ffe0dc57ed3bb7edd97026622b3068a151b5))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.97.0 ([#23485](https://github.com/cloudquery/cloudquery/issues/23485)) ([8684fe0](https://github.com/cloudquery/cloudquery/commit/8684fe076608257d1870ab12a0881f4998e6a7c9))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.98.0 ([#23486](https://github.com/cloudquery/cloudquery/issues/23486)) ([0787ffa](https://github.com/cloudquery/cloudquery/commit/0787ffa4957b19d8291212dc97ac4f1e8de8251b))
+* **deps:** Update module github.com/elastic/go-elasticsearch/v9 to v9.5.0 ([#23320](https://github.com/cloudquery/cloudquery/issues/23320)) ([0f4d8f9](https://github.com/cloudquery/cloudquery/commit/0f4d8f948bafd48fe6873f9d04ed504158decf2a))
+* **deps:** Update module github.com/elastic/go-elasticsearch/v9 to v9.5.2 ([#23429](https://github.com/cloudquery/cloudquery/issues/23429)) ([9a59e83](https://github.com/cloudquery/cloudquery/commit/9a59e83ba4b08906913489b43d3ee242b18413a2))
+* **deps:** Update module github.com/stretchr/testify to v1.12.1 ([#23322](https://github.com/cloudquery/cloudquery/issues/23322)) ([58653f2](https://github.com/cloudquery/cloudquery/commit/58653f29c681bb584bcd2cfda92691fcba3d9005))
+* **deps:** Update module golang.org/x/sync to v0.22.0 ([#23212](https://github.com/cloudquery/cloudquery/issues/23212)) ([6b4ba50](https://github.com/cloudquery/cloudquery/commit/6b4ba50bd7fb487f8915f7bd29daf4acbe4d4d1c))
+* **deps:** Update module google.golang.org/grpc to v1.82.1 [SECURITY] ([#23143](https://github.com/cloudquery/cloudquery/issues/23143)) ([dafc675](https://github.com/cloudquery/cloudquery/commit/dafc6753cd088a70ce692ce102eee20cdf5e2bd1))
+* **deps:** Update module google.golang.org/grpc to v1.83.2 [SECURITY] ([#23368](https://github.com/cloudquery/cloudquery/issues/23368)) ([ad31867](https://github.com/cloudquery/cloudquery/commit/ad318673e7582404745eeaa506380380a4e60f28))
+
+## [4.0.5](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v4.0.4...plugins-destination-elasticsearch-v4.0.5) (2026-07-10)
+
+
+### Bug Fixes
+
+* **deps:** Update docker.elastic.co/elasticsearch/elasticsearch Docker tag to v9.4.3 ([#23012](https://github.com/cloudquery/cloudquery/issues/23012)) ([a51a6af](https://github.com/cloudquery/cloudquery/commit/a51a6af6cf818b4874641feba03c1aad7d3331bb))
+* **deps:** Update github.com/cloudquery/jsonschema digest to 45e7e20 ([#23047](https://github.com/cloudquery/cloudquery/issues/23047)) ([0eebce9](https://github.com/cloudquery/cloudquery/commit/0eebce9592d70f52dbb8daaf73ba4c4d71a02906))
+* **deps:** Update go module directive to v1.26.4 ([#22996](https://github.com/cloudquery/cloudquery/issues/22996)) ([4c6a6b1](https://github.com/cloudquery/cloudquery/commit/4c6a6b19b9c85ea3f69276a77b9213d76bf744c5))
+* **deps:** Update golang.org/x/exp digest to c48552f ([#23008](https://github.com/cloudquery/cloudquery/issues/23008)) ([a236ecf](https://github.com/cloudquery/cloudquery/commit/a236ecfc64f5d8e448aebb0ff7ec15810b533207))
+* **deps:** Update module github.com/cenkalti/backoff/v5 to v6 ([#23043](https://github.com/cloudquery/cloudquery/issues/23043)) ([14fcaf7](https://github.com/cloudquery/cloudquery/commit/14fcaf7cd46a2d84b1af218262f304f20540eeb4))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.3 ([#22946](https://github.com/cloudquery/cloudquery/issues/22946)) ([b9aac1f](https://github.com/cloudquery/cloudquery/commit/b9aac1f3ab9eb846bb165aa2978be314ee6b8eaf))
+* **deps:** Update module github.com/elastic/elastic-transport-go/v8 to v8.11.0 ([#23026](https://github.com/cloudquery/cloudquery/issues/23026)) ([7692274](https://github.com/cloudquery/cloudquery/commit/769227499d2ff3fa2fa332b0a20d636d2f6cf3db))
+* **deps:** Update module github.com/elastic/go-elasticsearch/v9 to v9.4.2 ([#23015](https://github.com/cloudquery/cloudquery/issues/23015)) ([fb683e8](https://github.com/cloudquery/cloudquery/commit/fb683e88ab985f1935017c9b6b0d0fc4c49b2caa))
+* **deps:** Update module golang.org/x/net to v0.56.0 ([#23033](https://github.com/cloudquery/cloudquery/issues/23033)) ([43c367a](https://github.com/cloudquery/cloudquery/commit/43c367a645b5e26781b06039a0780cffb40bb2cd))
+
+## [4.0.4](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v4.0.3...plugins-destination-elasticsearch-v4.0.4) (2026-06-02)
+
+
+### Bug Fixes
+
+* **deps:** Update docker.elastic.co/elasticsearch/elasticsearch Docker tag to v9.4.2 ([#22891](https://github.com/cloudquery/cloudquery/issues/22891)) ([b1be413](https://github.com/cloudquery/cloudquery/commit/b1be413cac2adeaf41273a0c42ce9bebbb3d1cdd))
+* **deps:** Update go module directive to v1.26.3 ([#22869](https://github.com/cloudquery/cloudquery/issues/22869)) ([ce8d270](https://github.com/cloudquery/cloudquery/commit/ce8d270429e6503b849910035b761effcdbe62ab))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.2 ([#22836](https://github.com/cloudquery/cloudquery/issues/22836)) ([86c88b9](https://github.com/cloudquery/cloudquery/commit/86c88b9ce6a26cc85e4503c7507c24c5b22581e3))
+* **deps:** Update module github.com/elastic/go-elasticsearch/v9 to v9.4.1 ([#22898](https://github.com/cloudquery/cloudquery/issues/22898)) ([66bae52](https://github.com/cloudquery/cloudquery/commit/66bae52f9c3e25ba640726879e09abd8f63df497))
+
+## [4.0.3](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v4.0.2...plugins-destination-elasticsearch-v4.0.3) (2026-05-16)
+
+
+### Bug Fixes
+
+* **deps:** Update dependency go to v1.26.2 ([#22805](https://github.com/cloudquery/cloudquery/issues/22805)) ([59aeaf3](https://github.com/cloudquery/cloudquery/commit/59aeaf3355ed1b82e8675944d6ea3d48d5f80a39))
+* **deps:** Update docker.elastic.co/elasticsearch/elasticsearch Docker tag to v9.3.4 ([#22765](https://github.com/cloudquery/cloudquery/issues/22765)) ([9e4a03b](https://github.com/cloudquery/cloudquery/commit/9e4a03b70178eef97d4fbf11e51af9d404e47393))
+* **deps:** Update golang.org/x/exp digest to 746e56f ([#22759](https://github.com/cloudquery/cloudquery/issues/22759)) ([fc9dfd9](https://github.com/cloudquery/cloudquery/commit/fc9dfd9105df64c4a15daa6d6fa3655aa12180e3))
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.6.0 ([#22806](https://github.com/cloudquery/cloudquery/issues/22806)) ([2a7e7d2](https://github.com/cloudquery/cloudquery/commit/2a7e7d21a005267915db763397c1e415e37405da))
+* **deps:** Update module github.com/elastic/go-elasticsearch/v9 to v9.3.2 ([#22769](https://github.com/cloudquery/cloudquery/issues/22769)) ([2389af2](https://github.com/cloudquery/cloudquery/commit/2389af26a0bec424c48e3e40f21fc95ee890c711))
+* **deps:** Update module github.com/invopop/jsonschema to v0.14.0 ([#22783](https://github.com/cloudquery/cloudquery/issues/22783)) ([94db95e](https://github.com/cloudquery/cloudquery/commit/94db95e486029b1521d087450fb918423fbedc04))
+* **deps:** Update module github.com/rs/zerolog to v1.35.1 ([#22784](https://github.com/cloudquery/cloudquery/issues/22784)) ([7aa1d85](https://github.com/cloudquery/cloudquery/commit/7aa1d854e61a499efb5b6f181524719b60309905))
+* **deps:** Update module golang.org/x/term to v0.42.0 ([#22786](https://github.com/cloudquery/cloudquery/issues/22786)) ([b4a7483](https://github.com/cloudquery/cloudquery/commit/b4a7483737409bc227704cbe49f9cfe515e89a5d))
+* **deps:** Update module google.golang.org/api to v0.275.0 ([#22590](https://github.com/cloudquery/cloudquery/issues/22590)) ([0e4cedc](https://github.com/cloudquery/cloudquery/commit/0e4cedc995e977a7dded30b2abeaf916c95abb90))
+
+## [4.0.2](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v4.0.1...plugins-destination-elasticsearch-v4.0.2) (2026-04-15)
+
+
+### Bug Fixes
+
+* **deps:** Update module go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp to v0.19.0 [SECURITY] ([#22495](https://github.com/cloudquery/cloudquery/issues/22495)) ([c0a38fd](https://github.com/cloudquery/cloudquery/commit/c0a38fdaddfedba15ff33805985321273f5c7a48))
+* **deps:** Update module go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp to v1.43.0 [SECURITY] ([#22496](https://github.com/cloudquery/cloudquery/issues/22496)) ([1cf6439](https://github.com/cloudquery/cloudquery/commit/1cf6439317babce658328a996e995a7fc4e6644b))
+* **deps:** Update module go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp to v1.43.0 [SECURITY] ([#22497](https://github.com/cloudquery/cloudquery/issues/22497)) ([122ba44](https://github.com/cloudquery/cloudquery/commit/122ba442592fbb0437217eeee9203284ce0a8017))
+
+## [4.0.1](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v4.0.0...plugins-destination-elasticsearch-v4.0.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* **deps:** Update docker.elastic.co/elasticsearch/elasticsearch Docker tag to v9.3.2 ([#22416](https://github.com/cloudquery/cloudquery/issues/22416)) ([dad963f](https://github.com/cloudquery/cloudquery/commit/dad963f3fcb519bf46fde99e8b3f6b455183d30d))
+* **deps:** Update github.com/cloudquery/jsonschema digest to 8dfb902 ([#22368](https://github.com/cloudquery/cloudquery/issues/22368)) ([10faff2](https://github.com/cloudquery/cloudquery/commit/10faff23b1972ef5d1bdf32063db2aeecdca23f8))
+* **deps:** Update module github.com/cenkalti/backoff/v4 to v5 ([#22448](https://github.com/cloudquery/cloudquery/issues/22448)) ([f753c1f](https://github.com/cloudquery/cloudquery/commit/f753c1f5ed53ff8a575d051b892ec520f3ae7110))
+* **deps:** Update module github.com/cloudquery/codegen to v0.4.1 ([#22402](https://github.com/cloudquery/cloudquery/issues/22402)) ([c2c84bf](https://github.com/cloudquery/cloudquery/commit/c2c84bf779932b4ff556303a2378ddbbdd3bc4f3))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.1 ([#22461](https://github.com/cloudquery/cloudquery/issues/22461)) ([86d7bb6](https://github.com/cloudquery/cloudquery/commit/86d7bb6510172cd6d7c6ce78a1a468339465c307))
+
+## [4.0.0](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.6.4...plugins-destination-elasticsearch-v4.0.0) (2026-03-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* Upgrade go-elasticsearch SDK to v9, supporting Elasticsearch v9+ ([#22324](https://github.com/cloudquery/cloudquery/issues/22324))
+
+### Features
+
+* Upgrade go-elasticsearch SDK to v9, supporting Elasticsearch v9+ ([#22324](https://github.com/cloudquery/cloudquery/issues/22324)) ([1415a35](https://github.com/cloudquery/cloudquery/commit/1415a35e754a9230e93c4b9153743ff47c2bb662))
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/buger/jsonparser to v1.1.2 [SECURITY] ([#22325](https://github.com/cloudquery/cloudquery/issues/22325)) ([816b4a0](https://github.com/cloudquery/cloudquery/commit/816b4a0b3b5ddc39e7f21f34f66059863906d9d9))
+* **deps:** Update module github.com/cloudquery/codegen to v0.4.0 ([#22347](https://github.com/cloudquery/cloudquery/issues/22347)) ([782290d](https://github.com/cloudquery/cloudquery/commit/782290dbfc1f9a24f6a5ef805d770db5124e00a1))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.6 ([#22318](https://github.com/cloudquery/cloudquery/issues/22318)) ([ddde2f0](https://github.com/cloudquery/cloudquery/commit/ddde2f052123ca5561f0e67ea77c14d5bff53cef))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.7 ([#22338](https://github.com/cloudquery/cloudquery/issues/22338)) ([5d71062](https://github.com/cloudquery/cloudquery/commit/5d71062b1d6c2b7cbce4539beedbbbc6c5361819))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.0 ([#22354](https://github.com/cloudquery/cloudquery/issues/22354)) ([35ed376](https://github.com/cloudquery/cloudquery/commit/35ed3768dfc3691f22b21ab863ecd7f1f96665b5))
+* **deps:** Update module google.golang.org/grpc to v1.79.3 [SECURITY] ([#22255](https://github.com/cloudquery/cloudquery/issues/22255)) ([cd44a9c](https://github.com/cloudquery/cloudquery/commit/cd44a9ca59c2e3c5522b1b00206f6b388a206675))
+
+## [3.6.4](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.6.3...plugins-destination-elasticsearch-v3.6.4) (2026-03-16)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.5.2 ([#22195](https://github.com/cloudquery/cloudquery/issues/22195)) ([6a70686](https://github.com/cloudquery/cloudquery/commit/6a70686dff5903bc0f37b8695ddc6c9f7e3339d0))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.4 ([#22219](https://github.com/cloudquery/cloudquery/issues/22219)) ([f3899b3](https://github.com/cloudquery/cloudquery/commit/f3899b3c4e525fc6302db9a995e25979b219cc29))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.5 ([#22222](https://github.com/cloudquery/cloudquery/issues/22222)) ([96f95cd](https://github.com/cloudquery/cloudquery/commit/96f95cdede05015fb1ed266034f02be1409395f3))
+
+## [3.6.3](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.6.2...plugins-destination-elasticsearch-v3.6.3) (2026-03-05)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 3dfff04 ([#22125](https://github.com/cloudquery/cloudquery/issues/22125)) ([409e35a](https://github.com/cloudquery/cloudquery/commit/409e35a99ca7876169307d6296021da0368727f5))
+* **deps:** Update module go.opentelemetry.io/otel/sdk to v1.40.0 [SECURITY] ([#22099](https://github.com/cloudquery/cloudquery/issues/22099)) ([605e22f](https://github.com/cloudquery/cloudquery/commit/605e22ffbdda5a416899e307a3fb348864d2538f))
+
+## [3.6.2](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.6.1...plugins-destination-elasticsearch-v3.6.2) (2026-02-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.37 ([#22036](https://github.com/cloudquery/cloudquery/issues/22036)) ([060bf34](https://github.com/cloudquery/cloudquery/commit/060bf34cb8f15f277d306eea012d5a4d938fb350))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.3 ([#22073](https://github.com/cloudquery/cloudquery/issues/22073)) ([5e82838](https://github.com/cloudquery/cloudquery/commit/5e82838e24b7eb17d437d14c56b2c7b34a1d8d2f))
+
+## [3.6.1](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.6.0...plugins-destination-elasticsearch-v3.6.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 716be56 ([#21881](https://github.com/cloudquery/cloudquery/issues/21881)) ([904e9ef](https://github.com/cloudquery/cloudquery/commit/904e9ef618026c17463d7afef5bb2880613dae17))
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.5.1 ([#21993](https://github.com/cloudquery/cloudquery/issues/21993)) ([33229b7](https://github.com/cloudquery/cloudquery/commit/33229b7ba1989ba9781aed5b350d3f7f7763628a))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.36 ([#22012](https://github.com/cloudquery/cloudquery/issues/22012)) ([d69d54f](https://github.com/cloudquery/cloudquery/commit/d69d54f29082a637b190f1368f4c910e9530f030))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.1 ([#22011](https://github.com/cloudquery/cloudquery/issues/22011)) ([eae949e](https://github.com/cloudquery/cloudquery/commit/eae949e5351053bbcb4f09e8f1dccd58d4a9016b))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.2 ([#22016](https://github.com/cloudquery/cloudquery/issues/22016)) ([1b5c4b1](https://github.com/cloudquery/cloudquery/commit/1b5c4b1385b3bc693c88f9700ecf49c66fa18ca8))
+
+## [3.6.0](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.33...plugins-destination-elasticsearch-v3.6.0) (2026-01-15)
+
+
+### Features
+
+* Bring back Sentry DSNs for existing projects ([#21808](https://github.com/cloudquery/cloudquery/issues/21808)) ([a3b5aeb](https://github.com/cloudquery/cloudquery/commit/a3b5aebc5c7fb8f1253f196d3a8f4fb23b237aae))
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.0 ([#21811](https://github.com/cloudquery/cloudquery/issues/21811)) ([c22bc0a](https://github.com/cloudquery/cloudquery/commit/c22bc0a15bd69428eaed263a4de467a0d601b749))
+
+## [3.5.33](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.32...plugins-destination-elasticsearch-v3.5.33) (2026-01-08)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 944ab1f ([#21762](https://github.com/cloudquery/cloudquery/issues/21762)) ([fbf4f80](https://github.com/cloudquery/cloudquery/commit/fbf4f808127cb8f7b0a48a05ba750d036585b914))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.34 ([#21776](https://github.com/cloudquery/cloudquery/issues/21776)) ([44fad18](https://github.com/cloudquery/cloudquery/commit/44fad18d228cb61dc9a9311143abdb71d34f2c79))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.35 ([#21798](https://github.com/cloudquery/cloudquery/issues/21798)) ([451444f](https://github.com/cloudquery/cloudquery/commit/451444fee39e1ac7991e3be8cce41dac34754571))
+
+## [3.5.32](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.31...plugins-destination-elasticsearch-v3.5.32) (2025-12-19)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.92.1 ([#21682](https://github.com/cloudquery/cloudquery/issues/21682)) ([8a7596b](https://github.com/cloudquery/cloudquery/commit/8a7596bd5a15e4b79bdb26f385be9eaeafdae108))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.93.0 ([#21710](https://github.com/cloudquery/cloudquery/issues/21710)) ([f0f2c5b](https://github.com/cloudquery/cloudquery/commit/f0f2c5b5de8f3d3a5cb6a049f0035f17e9d7bbb6))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.93.1 ([#21725](https://github.com/cloudquery/cloudquery/issues/21725)) ([aa46079](https://github.com/cloudquery/cloudquery/commit/aa460797637559c010152c639d2d4363caf3491d))
+
+## [3.5.31](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.30...plugins-destination-elasticsearch-v3.5.31) (2025-11-14)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.92.0 ([#21579](https://github.com/cloudquery/cloudquery/issues/21579)) ([496d29a](https://github.com/cloudquery/cloudquery/commit/496d29af60229bcf5b62f4641467bc6b9eda8e9c))
+
+## [3.5.30](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.29...plugins-destination-elasticsearch-v3.5.30) (2025-11-06)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to a4bb9ff ([#21539](https://github.com/cloudquery/cloudquery/issues/21539)) ([ed2988d](https://github.com/cloudquery/cloudquery/commit/ed2988d827acf546583f9cd392bbb3bffbf55206))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.33 ([#21571](https://github.com/cloudquery/cloudquery/issues/21571)) ([4abf18d](https://github.com/cloudquery/cloudquery/commit/4abf18d1060aeb7cad06110bf600268a7da74366))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.91.0 ([#21537](https://github.com/cloudquery/cloudquery/issues/21537)) ([db6f9a0](https://github.com/cloudquery/cloudquery/commit/db6f9a083ab8dddb21f15142b058dadb2a54d49e))
+
+## [3.5.29](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.28...plugins-destination-elasticsearch-v3.5.29) (2025-10-02)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to df92998 ([#21436](https://github.com/cloudquery/cloudquery/issues/21436)) ([21ed4c8](https://github.com/cloudquery/cloudquery/commit/21ed4c88bbf9252c92bcfca184d01d676e6c53ec))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.32 ([#21413](https://github.com/cloudquery/cloudquery/issues/21413)) ([3d3b1cc](https://github.com/cloudquery/cloudquery/commit/3d3b1cc86d676095321e4304a6c04b5b3c4a1278))
+
+## [3.5.28](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.27...plugins-destination-elasticsearch-v3.5.28) (2025-09-04)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 8b4c13b ([#21294](https://github.com/cloudquery/cloudquery/issues/21294)) ([d64326e](https://github.com/cloudquery/cloudquery/commit/d64326e7d03184620e887916316322c9933b2e01))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.89.1 ([#21315](https://github.com/cloudquery/cloudquery/issues/21315)) ([cc51f55](https://github.com/cloudquery/cloudquery/commit/cc51f55e575336297662fd0d0495e919f020e71a))
+
+## [3.5.27](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.26...plugins-destination-elasticsearch-v3.5.27) (2025-08-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.89.0 ([#21238](https://github.com/cloudquery/cloudquery/issues/21238)) ([deb4cee](https://github.com/cloudquery/cloudquery/commit/deb4cee9012b1506d48db44de78d104b498813cf))
+
+## [3.5.26](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.25...plugins-destination-elasticsearch-v3.5.26) (2025-08-07)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 645b1fa ([#21193](https://github.com/cloudquery/cloudquery/issues/21193)) ([1c8c182](https://github.com/cloudquery/cloudquery/commit/1c8c182ff79f21897c6734717275843a229f4e35))
+
+## [3.5.25](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.24...plugins-destination-elasticsearch-v3.5.25) (2025-07-31)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.88.0 ([#21132](https://github.com/cloudquery/cloudquery/issues/21132)) ([1db1daa](https://github.com/cloudquery/cloudquery/commit/1db1daa7df2b3298ed84b4cc86d85bf8c128f037))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.88.1 ([#21164](https://github.com/cloudquery/cloudquery/issues/21164)) ([7450686](https://github.com/cloudquery/cloudquery/commit/745068650a195dcba4125b484b5f44ea6adcda75))
+
+## [3.5.24](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.23...plugins-destination-elasticsearch-v3.5.24) (2025-07-24)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.3 ([#21010](https://github.com/cloudquery/cloudquery/issues/21010)) ([c78cff9](https://github.com/cloudquery/cloudquery/commit/c78cff97ca8819ffc58a1ecb9fea7e2a9dbc1ffa))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.4 ([#21104](https://github.com/cloudquery/cloudquery/issues/21104)) ([44f77c8](https://github.com/cloudquery/cloudquery/commit/44f77c883bee4dd9cfc1f71f0cf4675452ed49ae))
+
+## [3.5.23](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.22...plugins-destination-elasticsearch-v3.5.23) (2025-07-15)
+
+
+### Bug Fixes
+
+* **deps:** Update github.com/cloudquery/sjson digest to 737185f ([#21023](https://github.com/cloudquery/cloudquery/issues/21023)) ([60f00a1](https://github.com/cloudquery/cloudquery/commit/60f00a17ee6e5dbbec3f2160af5a2ffd4facc8e4))
+
+## [3.5.22](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.21...plugins-destination-elasticsearch-v3.5.22) (2025-07-11)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.1 ([#20982](https://github.com/cloudquery/cloudquery/issues/20982)) ([5f23857](https://github.com/cloudquery/cloudquery/commit/5f2385702c9a50390b95104b05f5d211032d6d44))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.2 ([#21008](https://github.com/cloudquery/cloudquery/issues/21008)) ([67fc3e2](https://github.com/cloudquery/cloudquery/commit/67fc3e254eac125d19fb962551e543714a2d39dd))
+
+## [3.5.21](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.20...plugins-destination-elasticsearch-v3.5.21) (2025-07-02)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to b7579e2 ([#20935](https://github.com/cloudquery/cloudquery/issues/20935)) ([aac340d](https://github.com/cloudquery/cloudquery/commit/aac340d4ff8ed9f0ffa14f1d5ae26df7addcb9fc))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.29 ([#20947](https://github.com/cloudquery/cloudquery/issues/20947)) ([af179be](https://github.com/cloudquery/cloudquery/commit/af179be0ef3223c81a30af9bc229149fc64c9bf1))
+
+## [3.5.20](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.19...plugins-destination-elasticsearch-v3.5.20) (2025-05-28)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.82.0 ([#20814](https://github.com/cloudquery/cloudquery/issues/20814)) ([6503ea9](https://github.com/cloudquery/cloudquery/commit/6503ea9d7945dd0bcfe5c8e4cbf407e40ea1e4de))
+
+## [3.5.19](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.18...plugins-destination-elasticsearch-v3.5.19) (2025-05-21)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.2 ([#20778](https://github.com/cloudquery/cloudquery/issues/20778)) ([525352c](https://github.com/cloudquery/cloudquery/commit/525352c3d5ce3dd258358b7396b2cebd6ae3ce87))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.3 ([#20802](https://github.com/cloudquery/cloudquery/issues/20802)) ([2ba2f8e](https://github.com/cloudquery/cloudquery/commit/2ba2f8e59687b329d90bd07461e5ae967e0489f3))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.81.0 ([#20806](https://github.com/cloudquery/cloudquery/issues/20806)) ([567e252](https://github.com/cloudquery/cloudquery/commit/567e2524195d7f15e7d04f1fec2d8839c7735756))
+
+## [3.5.18](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.17...plugins-destination-elasticsearch-v3.5.18) (2025-05-14)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.27 ([#20757](https://github.com/cloudquery/cloudquery/issues/20757)) ([281a0e4](https://github.com/cloudquery/cloudquery/commit/281a0e43702050786f8424d856dd8509da3480a4))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.28 ([#20759](https://github.com/cloudquery/cloudquery/issues/20759)) ([9aaff23](https://github.com/cloudquery/cloudquery/commit/9aaff23ba9bcaed59db0e56c71a635346eb86a71))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.0 ([#20729](https://github.com/cloudquery/cloudquery/issues/20729)) ([35e88d7](https://github.com/cloudquery/cloudquery/commit/35e88d7eab95f4f75c8f45092bfcec0e186f71e5))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.1 ([#20765](https://github.com/cloudquery/cloudquery/issues/20765)) ([a780ebf](https://github.com/cloudquery/cloudquery/commit/a780ebf3ab39afac488fdded773e0530c3e6f016))
+
+## [3.5.17](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.16...plugins-destination-elasticsearch-v3.5.17) (2025-05-08)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.79.1 ([#20692](https://github.com/cloudquery/cloudquery/issues/20692)) ([50f909e](https://github.com/cloudquery/cloudquery/commit/50f909e8f847d436b973721cf7450e505af72c67))
+
+## [3.5.16](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.15...plugins-destination-elasticsearch-v3.5.16) (2025-05-01)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 7e4ce0a ([#20668](https://github.com/cloudquery/cloudquery/issues/20668)) ([b57b0d5](https://github.com/cloudquery/cloudquery/commit/b57b0d59aa0ec0ce15e9872e960f3abf10cf3ee5))
+
+## [3.5.15](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.14...plugins-destination-elasticsearch-v3.5.15) (2025-04-29)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.79.0 ([#20636](https://github.com/cloudquery/cloudquery/issues/20636)) ([1ee4f97](https://github.com/cloudquery/cloudquery/commit/1ee4f9766600e018e9afcdeb4aa11a38fccf7c9d))
+
+## [3.5.14](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.13...plugins-destination-elasticsearch-v3.5.14) (2025-04-25)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.78.0 ([#20597](https://github.com/cloudquery/cloudquery/issues/20597)) ([97111d7](https://github.com/cloudquery/cloudquery/commit/97111d7f32985b4ce64151a3282c9f8dfe558a3e))
+
+## [3.5.13](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.12...plugins-destination-elasticsearch-v3.5.13) (2025-04-17)
+
+
+### Bug Fixes
+
+* **deps:** Update module golang.org/x/net to v0.38.0 [SECURITY] ([#20558](https://github.com/cloudquery/cloudquery/issues/20558)) ([7a7a41a](https://github.com/cloudquery/cloudquery/commit/7a7a41a078cfb9164544fa60eea3c19a1c87aaaa))
+
+## [3.5.12](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.11...plugins-destination-elasticsearch-v3.5.12) (2025-04-09)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.25 ([#20501](https://github.com/cloudquery/cloudquery/issues/20501)) ([19996da](https://github.com/cloudquery/cloudquery/commit/19996dab336a2a07bf200e007b183bf5ed38d957))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.26 ([#20537](https://github.com/cloudquery/cloudquery/issues/20537)) ([1175bd5](https://github.com/cloudquery/cloudquery/commit/1175bd5dc5918a17e42ad42e24842296f5c4b455))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.77.0 ([#20528](https://github.com/cloudquery/cloudquery/issues/20528)) ([c219c22](https://github.com/cloudquery/cloudquery/commit/c219c2222582bc4a2d048399e8ab8350b2f4e648))
+
+## [3.5.11](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.10...plugins-destination-elasticsearch-v3.5.11) (2025-04-02)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 054e65f ([#20463](https://github.com/cloudquery/cloudquery/issues/20463)) ([837f2e5](https://github.com/cloudquery/cloudquery/commit/837f2e552b279126fa49f97f73b1ebfe16bbcfcd))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.24 ([#20471](https://github.com/cloudquery/cloudquery/issues/20471)) ([d18d129](https://github.com/cloudquery/cloudquery/commit/d18d129ca00561b66cb85a1603bd6acb74ad6a27))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.76.0 ([#20499](https://github.com/cloudquery/cloudquery/issues/20499)) ([6c6c75a](https://github.com/cloudquery/cloudquery/commit/6c6c75aabf6c5585c71fcc649714f9f36fd2eefa))
+
+## [3.5.10](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.9...plugins-destination-elasticsearch-v3.5.10) (2025-03-26)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.2.0 ([#20410](https://github.com/cloudquery/cloudquery/issues/20410)) ([ee081fb](https://github.com/cloudquery/cloudquery/commit/ee081fbb1ab7bd0c4c0955556dc6c76e17d4b9f3))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.74.2 ([#20434](https://github.com/cloudquery/cloudquery/issues/20434)) ([8db20d6](https://github.com/cloudquery/cloudquery/commit/8db20d6bc12153dc750857fe853ce2e3d95db65c))
+
+## [3.5.9](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.8...plugins-destination-elasticsearch-v3.5.9) (2025-03-20)
+
+
+### Bug Fixes
+
+* **deps:** Update module golang.org/x/net to v0.36.0 [SECURITY] ([#20358](https://github.com/cloudquery/cloudquery/issues/20358)) ([66dd378](https://github.com/cloudquery/cloudquery/commit/66dd3785af221a4eb0ab5d1d9820ff5d3ac54198))
+
+## [3.5.8](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.7...plugins-destination-elasticsearch-v3.5.8) (2025-03-12)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.74.1 ([#20311](https://github.com/cloudquery/cloudquery/issues/20311)) ([10f803f](https://github.com/cloudquery/cloudquery/commit/10f803f0555bdc062ccd3c7f30ffeff0746f53ab))
+
+## [3.5.7](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.6...plugins-destination-elasticsearch-v3.5.7) (2025-02-05)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.23 ([#20216](https://github.com/cloudquery/cloudquery/issues/20216)) ([561f330](https://github.com/cloudquery/cloudquery/commit/561f330a1e9e155c7c412dcaeac617b412cd2fe3))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.4 ([#20218](https://github.com/cloudquery/cloudquery/issues/20218)) ([9276249](https://github.com/cloudquery/cloudquery/commit/9276249f38c54565f25ef02f476b4cf4dc047482))
+
+## [3.5.6](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.5...plugins-destination-elasticsearch-v3.5.6) (2025-01-29)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.22 ([#20167](https://github.com/cloudquery/cloudquery/issues/20167)) ([81b5b21](https://github.com/cloudquery/cloudquery/commit/81b5b217d0faa1e8f56dd2e47e1fbb1613c72f73))
+
+## [3.5.5](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.4...plugins-destination-elasticsearch-v3.5.5) (2025-01-21)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.6 ([#20047](https://github.com/cloudquery/cloudquery/issues/20047)) ([e0ca8e0](https://github.com/cloudquery/cloudquery/commit/e0ca8e042f7531d305eb925de22bb972a8b136a8))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.0 ([#20127](https://github.com/cloudquery/cloudquery/issues/20127)) ([6638205](https://github.com/cloudquery/cloudquery/commit/6638205f26d27c64ffb9bd686937d677688dc26a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.2 ([#20142](https://github.com/cloudquery/cloudquery/issues/20142)) ([75964e3](https://github.com/cloudquery/cloudquery/commit/75964e335f6d293bd60b7ebdf83474373069f2f4))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.3 ([#20154](https://github.com/cloudquery/cloudquery/issues/20154)) ([847b6ce](https://github.com/cloudquery/cloudquery/commit/847b6ceefa2f60bad025c501823dbbd16330bfe7))
+* **deps:** Update module github.com/goccy/go-json to v0.10.4 ([#20048](https://github.com/cloudquery/cloudquery/issues/20048)) ([4e8a580](https://github.com/cloudquery/cloudquery/commit/4e8a58028929d13bcdb4c52751101768859604ee))
+
+## [3.5.4](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.3...plugins-destination-elasticsearch-v3.5.4) (2025-01-07)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.4 ([#20005](https://github.com/cloudquery/cloudquery/issues/20005)) ([ce42c41](https://github.com/cloudquery/cloudquery/commit/ce42c4137f9f028301f7880f0dac7e9eb0350c28))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.5 ([#20018](https://github.com/cloudquery/cloudquery/issues/20018)) ([f019725](https://github.com/cloudquery/cloudquery/commit/f01972543e11b1176b80cc9ae224adb759b59462))
+* **deps:** Update module golang.org/x/net to v0.33.0 [SECURITY] ([#19975](https://github.com/cloudquery/cloudquery/issues/19975)) ([cfe9e1b](https://github.com/cloudquery/cloudquery/commit/cfe9e1b5a15cd24ec24edc4e2daaf9a4ebd0faf9))
+
+## [3.5.3](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.2...plugins-destination-elasticsearch-v3.5.3) (2024-12-18)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.71.1 ([#19934](https://github.com/cloudquery/cloudquery/issues/19934)) ([0143675](https://github.com/cloudquery/cloudquery/commit/0143675576ac0fe3307669af904a3dc5ad9b00dc))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.0 ([#19962](https://github.com/cloudquery/cloudquery/issues/19962)) ([d3e739c](https://github.com/cloudquery/cloudquery/commit/d3e739cf8f3802de63ff173660a7672047bd05d5))
+
+## [3.5.2](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.1...plugins-destination-elasticsearch-v3.5.2) (2024-12-11)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.21 ([#19907](https://github.com/cloudquery/cloudquery/issues/19907)) ([3fa7b33](https://github.com/cloudquery/cloudquery/commit/3fa7b33d94d91b6f4c1267721c3bd6fc040795be))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.70.2 ([#19873](https://github.com/cloudquery/cloudquery/issues/19873)) ([1c294aa](https://github.com/cloudquery/cloudquery/commit/1c294aa23b14da8cef9f78ee1a7365e50f304534))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.71.0 ([#19911](https://github.com/cloudquery/cloudquery/issues/19911)) ([2df1161](https://github.com/cloudquery/cloudquery/commit/2df11619759e8211780274ae870aadb1832411d3))
+
+## [3.5.1](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.5.0...plugins-destination-elasticsearch-v3.5.1) (2024-12-02)
+
+
+### Bug Fixes
+
+* Correct major version in `go.mod` ([#19811](https://github.com/cloudquery/cloudquery/issues/19811)) ([56644dc](https://github.com/cloudquery/cloudquery/commit/56644dc87aace839b4a8cb7e00701022ddde528f))
+* **deps:** Update golang.org/x/exp digest to 2d47ceb ([#19794](https://github.com/cloudquery/cloudquery/issues/19794)) ([5af258f](https://github.com/cloudquery/cloudquery/commit/5af258f4400742938b39575792ebdb51ff9471d8))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.20 ([#19832](https://github.com/cloudquery/cloudquery/issues/19832)) ([47f140f](https://github.com/cloudquery/cloudquery/commit/47f140f5cc5331eedffe1aaea35e8feb9c6b1f6f))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.70.1 ([#19834](https://github.com/cloudquery/cloudquery/issues/19834)) ([687cefd](https://github.com/cloudquery/cloudquery/commit/687cefd19d03767cd1d949d5a28db36e618699a8))
+
+## [3.5.0](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.14...plugins-destination-elasticsearch-v3.5.0) (2024-11-28)
+
+
+### Features
+
+* Add license information ([#19642](https://github.com/cloudquery/cloudquery/issues/19642)) ([a81edd6](https://github.com/cloudquery/cloudquery/commit/a81edd6c5e7c2a25f3396ac80983d28c4af2f1c7))
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.69.0 ([#19677](https://github.com/cloudquery/cloudquery/issues/19677)) ([84cd7bd](https://github.com/cloudquery/cloudquery/commit/84cd7bd0e40b310a4e1db19422c5f9c64ccd515a))
+
+## [3.4.14](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.13...plugins-destination-elasticsearch-v3.4.14) (2024-11-20)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.68.3 ([#19604](https://github.com/cloudquery/cloudquery/issues/19604)) ([3d378ea](https://github.com/cloudquery/cloudquery/commit/3d378ea20dba9f2f66416545855b5bd15ee575cf))
+
+## [3.4.13](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.12...plugins-destination-elasticsearch-v3.4.13) (2024-11-06)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to f66d83c ([#19543](https://github.com/cloudquery/cloudquery/issues/19543)) ([9ba7932](https://github.com/cloudquery/cloudquery/commit/9ba793279084af457ed2d307e82f410358ed64f7))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.68.0 ([#19515](https://github.com/cloudquery/cloudquery/issues/19515)) ([97c6d41](https://github.com/cloudquery/cloudquery/commit/97c6d41cc6962534c4c4cb1d3368dc38e6074383))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.68.2 ([#19565](https://github.com/cloudquery/cloudquery/issues/19565)) ([7e5fe64](https://github.com/cloudquery/cloudquery/commit/7e5fe6464d39173709107f512bab4da54a687d28))
+
+## [3.4.12](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.11...plugins-destination-elasticsearch-v3.4.12) (2024-10-30)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.67.1 ([#19467](https://github.com/cloudquery/cloudquery/issues/19467)) ([7c20418](https://github.com/cloudquery/cloudquery/commit/7c20418bd8fbb5b9a74726c90251fcde9a53b94a))
+
+## [3.4.11](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.10...plugins-destination-elasticsearch-v3.4.11) (2024-10-22)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.67.0 ([#19423](https://github.com/cloudquery/cloudquery/issues/19423)) ([50ebeb7](https://github.com/cloudquery/cloudquery/commit/50ebeb7b78779281a1e22c79d676e3a14a8f668a))
+
+## [3.4.10](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.9...plugins-destination-elasticsearch-v3.4.10) (2024-10-16)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.66.1 ([#19380](https://github.com/cloudquery/cloudquery/issues/19380)) ([0b37067](https://github.com/cloudquery/cloudquery/commit/0b3706722e10da4e5f065b86927c555df5fd350f))
+
+## [3.4.9](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.8...plugins-destination-elasticsearch-v3.4.9) (2024-10-08)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.64.0 ([#19287](https://github.com/cloudquery/cloudquery/issues/19287)) ([49941ee](https://github.com/cloudquery/cloudquery/commit/49941ee0c985fe6cb88581818064c8152a388304))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.65.0 ([#19322](https://github.com/cloudquery/cloudquery/issues/19322)) ([87a68ea](https://github.com/cloudquery/cloudquery/commit/87a68ea489068a621948112137f987252b83273c))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.66.0 ([#19332](https://github.com/cloudquery/cloudquery/issues/19332)) ([137a232](https://github.com/cloudquery/cloudquery/commit/137a2328637ef226e5dba446b92c2d670f798540))
+
+## [3.4.8](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.7...plugins-destination-elasticsearch-v3.4.8) (2024-09-25)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.63.0 ([#19176](https://github.com/cloudquery/cloudquery/issues/19176)) ([00b2de0](https://github.com/cloudquery/cloudquery/commit/00b2de08ed424b7dbcc60a143a386c9c42133a70))
+
+## [3.4.7](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.6...plugins-destination-elasticsearch-v3.4.7) (2024-09-18)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.62.0 ([#19137](https://github.com/cloudquery/cloudquery/issues/19137)) ([ed315d0](https://github.com/cloudquery/cloudquery/commit/ed315d011d6a205e1a8ba851570f8e9533698c52))
+
+## [3.4.6](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.5...plugins-destination-elasticsearch-v3.4.6) (2024-09-04)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 9b4947d ([#19051](https://github.com/cloudquery/cloudquery/issues/19051)) ([153f62b](https://github.com/cloudquery/cloudquery/commit/153f62b9aef6197052ced180567ccbea8ab0aa96))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.61.0 ([#19069](https://github.com/cloudquery/cloudquery/issues/19069)) ([bf8ab33](https://github.com/cloudquery/cloudquery/commit/bf8ab3356a44e3fee8e03f68fbc3994471cdb6fa))
+
+## [3.4.5](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.4...plugins-destination-elasticsearch-v3.4.5) (2024-08-13)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.59.0 ([#18881](https://github.com/cloudquery/cloudquery/issues/18881)) ([8f7667f](https://github.com/cloudquery/cloudquery/commit/8f7667f78c89514203806a458dafcbf3f389e45b))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.60.0 ([#18922](https://github.com/cloudquery/cloudquery/issues/18922)) ([7626636](https://github.com/cloudquery/cloudquery/commit/7626636913f7a0b26fb4abd25202697ace7b7132))
+
+## [3.4.4](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.3...plugins-destination-elasticsearch-v3.4.4) (2024-08-06)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 8a7402a ([#18799](https://github.com/cloudquery/cloudquery/issues/18799)) ([feed49d](https://github.com/cloudquery/cloudquery/commit/feed49d232ebd93cfc84148ba0991adc97321600))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.56.0 ([#18763](https://github.com/cloudquery/cloudquery/issues/18763)) ([45da614](https://github.com/cloudquery/cloudquery/commit/45da614ef7aaaf83e7820beec5ee33b00e9f5c0f))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.57.0 ([#18810](https://github.com/cloudquery/cloudquery/issues/18810)) ([42cc5de](https://github.com/cloudquery/cloudquery/commit/42cc5de457e5734c66d3c0f08ef61b35b2b60ca9))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.57.1 ([#18830](https://github.com/cloudquery/cloudquery/issues/18830)) ([605c202](https://github.com/cloudquery/cloudquery/commit/605c2027954f06f8314bad4ebb4f8fb378e7ce93))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.58.0 ([#18839](https://github.com/cloudquery/cloudquery/issues/18839)) ([6b57bca](https://github.com/cloudquery/cloudquery/commit/6b57bca07781db60497006b870d241609ebc8aab))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.58.1 ([#18852](https://github.com/cloudquery/cloudquery/issues/18852)) ([4320340](https://github.com/cloudquery/cloudquery/commit/4320340ac9a0db098696f567956e8b0c721f714c))
+
+## [3.4.3](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.2...plugins-destination-elasticsearch-v3.4.3) (2024-07-30)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.54.0 ([#18717](https://github.com/cloudquery/cloudquery/issues/18717)) ([c8ccd1f](https://github.com/cloudquery/cloudquery/commit/c8ccd1ff6c40ef7385a72669769531c72d9c7128))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.55.0 ([#18742](https://github.com/cloudquery/cloudquery/issues/18742)) ([4045944](https://github.com/cloudquery/cloudquery/commit/4045944b8e9f4414145e6484a62692852ba9b174))
+
+## [3.4.2](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.1...plugins-destination-elasticsearch-v3.4.2) (2024-07-30)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.52.1 ([#18674](https://github.com/cloudquery/cloudquery/issues/18674)) ([01f8463](https://github.com/cloudquery/cloudquery/commit/01f84633e82f1921a2a5a805d1aa1d5a5a6abac6))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.53.0 ([#18703](https://github.com/cloudquery/cloudquery/issues/18703)) ([2fbc27d](https://github.com/cloudquery/cloudquery/commit/2fbc27d8c1aa066d24611c74099c3e437b821617))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.53.1 ([#18705](https://github.com/cloudquery/cloudquery/issues/18705)) ([5432049](https://github.com/cloudquery/cloudquery/commit/5432049699370d058b7a28b9be546a4871537756))
+
+## [3.4.1](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.4.0...plugins-destination-elasticsearch-v3.4.1) (2024-07-23)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow/go/v16 to v17 ([#18657](https://github.com/cloudquery/cloudquery/issues/18657)) ([3ae9b11](https://github.com/cloudquery/cloudquery/commit/3ae9b1148b93939e436a81f4bca2a446945886d6))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.18 ([#18658](https://github.com/cloudquery/cloudquery/issues/18658)) ([d1b8845](https://github.com/cloudquery/cloudquery/commit/d1b88459ef294590896e9337a16fa848460b8de6))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.19 ([#18666](https://github.com/cloudquery/cloudquery/issues/18666)) ([cf70b57](https://github.com/cloudquery/cloudquery/commit/cf70b57853af4dd4b69be202766d337c1cfe16d7))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.4 ([#18616](https://github.com/cloudquery/cloudquery/issues/18616)) ([b818bfb](https://github.com/cloudquery/cloudquery/commit/b818bfbcc5c47839e4d00f28615ed7c7016a32df))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.50.0 ([#18642](https://github.com/cloudquery/cloudquery/issues/18642)) ([703b60c](https://github.com/cloudquery/cloudquery/commit/703b60c58851a6c57f23f1e41a188b83e7e384ae))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.51.0 ([#18664](https://github.com/cloudquery/cloudquery/issues/18664)) ([c98a04d](https://github.com/cloudquery/cloudquery/commit/c98a04d96e2b7a478da0c335143745d9387a8830))
+
+## [3.4.0](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.3.4...plugins-destination-elasticsearch-v3.4.0) (2024-07-16)
+
+
+### Features
+
+* Add ElasticSearch destination connection test ([#18560](https://github.com/cloudquery/cloudquery/issues/18560)) ([95e656e](https://github.com/cloudquery/cloudquery/commit/95e656e768ed7f84d8026c20c4ee3bee6ebc5824))
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.3 ([#18513](https://github.com/cloudquery/cloudquery/issues/18513)) ([d12da90](https://github.com/cloudquery/cloudquery/commit/d12da90f5ca67b8e590c433ad2762d48c499e6aa))
+
+## [3.3.4](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.3.3...plugins-destination-elasticsearch-v3.3.4) (2024-07-09)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/cloudquery-api-go to v1.12.0 ([#18448](https://github.com/cloudquery/cloudquery/issues/18448)) ([a5850e1](https://github.com/cloudquery/cloudquery/commit/a5850e1190e7d40437b3fbcea5c3b8f6b4b059ac))
+* **deps:** Update module github.com/cloudquery/codegen to v0.3.17 ([#18491](https://github.com/cloudquery/cloudquery/issues/18491)) ([b43fd16](https://github.com/cloudquery/cloudquery/commit/b43fd1602fa41e7df89b1007b119d5796867cc50))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.1 ([#18497](https://github.com/cloudquery/cloudquery/issues/18497)) ([3416eb7](https://github.com/cloudquery/cloudquery/commit/3416eb7d870fb8e9a0132bda3a571a235817a3f6))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.2 ([#18504](https://github.com/cloudquery/cloudquery/issues/18504)) ([2d80936](https://github.com/cloudquery/cloudquery/commit/2d80936e5f952b29f1ddf6267c2331a504a38b2d))
+
+## [3.3.3](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.3.2...plugins-destination-elasticsearch-v3.3.3) (2024-07-03)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to 7f521ea ([#18428](https://github.com/cloudquery/cloudquery/issues/18428)) ([5d18290](https://github.com/cloudquery/cloudquery/commit/5d1829066fa91705ea83ecc6d212b7e64704860d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.0 ([#18415](https://github.com/cloudquery/cloudquery/issues/18415)) ([3f4ef53](https://github.com/cloudquery/cloudquery/commit/3f4ef5366078eebd38ab7c1cc52afc0eaeee08f4))
+* **deps:** Update module github.com/hashicorp/go-retryablehttp to v0.7.7 [SECURITY] ([#18369](https://github.com/cloudquery/cloudquery/issues/18369)) ([1e223bf](https://github.com/cloudquery/cloudquery/commit/1e223bf58529449ab7b30d1a0d046a40a0488cf1))
+
+## [3.3.2](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.3.1...plugins-destination-elasticsearch-v3.3.2) (2024-06-25)
+
+
+### Bug Fixes
+
+* **deps:** Update `github.com/cloudquery/plugin-sdk/v4` to v4.45.6 ([#18338](https://github.com/cloudquery/cloudquery/issues/18338)) ([d34a2c0](https://github.com/cloudquery/cloudquery/commit/d34a2c056095ff94483a54a9db5ae10d455669ac))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.4 ([#18299](https://github.com/cloudquery/cloudquery/issues/18299)) ([200480a](https://github.com/cloudquery/cloudquery/commit/200480a04ecaa8a826df2aa86429d1e1c9416f73))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.5 ([#18327](https://github.com/cloudquery/cloudquery/issues/18327)) ([42d5850](https://github.com/cloudquery/cloudquery/commit/42d5850e4d11e49d8567c2b182a3b26409cad150))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.46.0 ([#18341](https://github.com/cloudquery/cloudquery/issues/18341)) ([5db9574](https://github.com/cloudquery/cloudquery/commit/5db9574defbd47b798254dacb1f4e466ccfacf74))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.46.1 ([#18350](https://github.com/cloudquery/cloudquery/issues/18350)) ([8ff8909](https://github.com/cloudquery/cloudquery/commit/8ff89094c231abfbc1cec38f8901a546139f2d01))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.47.0 ([#18351](https://github.com/cloudquery/cloudquery/issues/18351)) ([9c5bbdc](https://github.com/cloudquery/cloudquery/commit/9c5bbdccebdc2c65df491f70f76483aa0bb1c533))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.47.1 ([#18352](https://github.com/cloudquery/cloudquery/issues/18352)) ([b31812a](https://github.com/cloudquery/cloudquery/commit/b31812a821233cffa2b9bbc6a7644797f380fa82))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.48.0 ([#18363](https://github.com/cloudquery/cloudquery/issues/18363)) ([61baf97](https://github.com/cloudquery/cloudquery/commit/61baf97d1704878dcb129be56bd6457109b1719a))
+
+## [3.3.1](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.3.0...plugins-destination-elasticsearch-v3.3.1) (2024-06-18)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.0 ([#18246](https://github.com/cloudquery/cloudquery/issues/18246)) ([b462a91](https://github.com/cloudquery/cloudquery/commit/b462a91c6c260661171b5afc2a0e063202fcde1d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.1 ([#18273](https://github.com/cloudquery/cloudquery/issues/18273)) ([c54ebbf](https://github.com/cloudquery/cloudquery/commit/c54ebbfadcaac9f5f9085681dd5e4065b494dc74))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.2 ([#18289](https://github.com/cloudquery/cloudquery/issues/18289)) ([c5b1b3e](https://github.com/cloudquery/cloudquery/commit/c5b1b3ec80d7d3cf7d32514a72942d50b2fbf546))
+
+## [3.3.0](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.2.15...plugins-destination-elasticsearch-v3.3.0) (2024-06-11)
+
+
+### Features
+
+* Remove logging of error events to Sentry in plugins ([#18165](https://github.com/cloudquery/cloudquery/issues/18165)) ([fc4ff27](https://github.com/cloudquery/cloudquery/commit/fc4ff27d37f9250b4cf912474073169406cb01fa))
+
+## [3.2.15](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.2.14...plugins-destination-elasticsearch-v3.2.15) (2024-06-04)
+
+
+### Bug Fixes
+
+* **deps:** Update golang.org/x/exp digest to fd00a4e ([#18079](https://github.com/cloudquery/cloudquery/issues/18079)) ([5d90dc1](https://github.com/cloudquery/cloudquery/commit/5d90dc12325327d87e4f422d25f8d75d492f4baf))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.44.1 ([#18076](https://github.com/cloudquery/cloudquery/issues/18076)) ([7cd7012](https://github.com/cloudquery/cloudquery/commit/7cd70128389844d0221f7dce7102375f8931ef77))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.44.2 ([#18113](https://github.com/cloudquery/cloudquery/issues/18113)) ([508347b](https://github.com/cloudquery/cloudquery/commit/508347b8d2168564f69ccb33171f290267647c12))
+* **deps:** Update module github.com/goccy/go-json to v0.10.3 ([#18084](https://github.com/cloudquery/cloudquery/issues/18084)) ([4b787ad](https://github.com/cloudquery/cloudquery/commit/4b787adec363edd2e958c4a9b31af2ae45c761f0))
+
+## [3.2.14](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.2.13...plugins-destination-elasticsearch-v3.2.14) (2024-05-21)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.42.1 ([#17965](https://github.com/cloudquery/cloudquery/issues/17965)) ([d652b81](https://github.com/cloudquery/cloudquery/commit/d652b81e18a35d122280ee1e59c601d7b1a0e607))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.42.2 ([#18000](https://github.com/cloudquery/cloudquery/issues/18000)) ([5fc0f46](https://github.com/cloudquery/cloudquery/commit/5fc0f46ce912a6b5c1d232b405ca6f2a30584461))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.43.0 ([#18014](https://github.com/cloudquery/cloudquery/issues/18014)) ([20592c8](https://github.com/cloudquery/cloudquery/commit/20592c8ba2a2da05a6dac60701e821fc0623bf60))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.43.1 ([#18026](https://github.com/cloudquery/cloudquery/issues/18026)) ([364307c](https://github.com/cloudquery/cloudquery/commit/364307c5a7e954cc3521498678e3aa658eb4937a))
+
+## [3.2.13](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.2.12...plugins-destination-elasticsearch-v3.2.13) (2024-05-14)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.41.0 ([#17917](https://github.com/cloudquery/cloudquery/issues/17917)) ([81f2506](https://github.com/cloudquery/cloudquery/commit/81f25061a461a025595aa0b4ed4bf992f53e67be))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.41.1 ([#17941](https://github.com/cloudquery/cloudquery/issues/17941)) ([b112a67](https://github.com/cloudquery/cloudquery/commit/b112a6798245d12ef82da532504a500c610cac10))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.42.0 ([#17951](https://github.com/cloudquery/cloudquery/issues/17951)) ([f5befb1](https://github.com/cloudquery/cloudquery/commit/f5befb1fba1089d78c594c39064466795c53a86e))
+
 ## [3.2.12](https://github.com/cloudquery/cloudquery/compare/plugins-destination-elasticsearch-v3.2.11...plugins-destination-elasticsearch-v3.2.12) (2024-05-07)
 
 

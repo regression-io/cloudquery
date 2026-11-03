@@ -7,46 +7,60 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "plugins/source/hackernews/**"
-      - ".github/workflows/source_hackernews.yml"
+      - 'plugins/source/hackernews/**'
+      - '.github/workflows/source_hackernews.yml'
+      - '.github/cloudquery-cli-version'
   push:
     branches:
       - main
     paths:
-      - "plugins/source/hackernews/**"
-      - ".github/workflows/source_hackernews.yml"
+      - 'plugins/source/hackernews/**'
+      - '.github/workflows/source_hackernews.yml'
+
+permissions:
+  contents: read
 
 jobs:
   plugins-source-hackernews:
     timeout-minutes: 30
-    name: "plugins/source/hackernews"
+    name: 'plugins/source/hackernews'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./plugins/source/hackernews
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
       - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+        id: setup-go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: plugins/source/hackernews/go.mod
-          cache: true
-          cache-dependency-path: plugins/source/hackernews/go.sum
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+          cache: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
-          version: v1.55.2
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-source-hackernews-${{ hashFiles('plugins/source/hackernews/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-source-hackernews-
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
           working-directory: plugins/source/hackernews
-          args: "--config ../../.golangci.yml"
-          skip-pkg-cache: true
-          skip-build-cache: true
+          args: '--config ../../.golangci.yml'
+      - name: Read CloudQuery CLI version
+        id: cloudquery-cli-version
+        if: github.event_name == 'pull_request'
+        run: echo "version=$(tr -d '[:space:]' < "$GITHUB_WORKSPACE/.github/cloudquery-cli-version")" >> "$GITHUB_OUTPUT"
       - name: Setup CloudQuery
         if: github.event_name == 'pull_request'
-        uses: cloudquery/setup-cloudquery@v3
+        uses: cloudquery/setup-cloudquery@3b6ae9d08be7cca123e33ac7f0f74730be212861 # v5.0.5
         with:
-          version: v5.18.1
+          version: ${{ steps.cloudquery-cli-version.outputs.version }}
       - name: gen
         if: github.event_name == 'pull_request'
         run: make gen
@@ -57,4 +71,3 @@ jobs:
         run: go build .
       - name: Test
         run: make test
-  

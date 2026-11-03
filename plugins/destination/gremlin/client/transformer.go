@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
 func (c *Client) transformArr(arr arrow.Array, isCQTime bool) []any {
@@ -40,7 +40,8 @@ func (c *Client) transformArr(arr arrow.Array, isCQTime bool) []any {
 			dbArr[i] = stripNulls(a.Value(i))
 		case *array.Timestamp:
 			if isCQTime {
-				dbArr[i] = a.Value(i).ToTime(a.DataType().(*arrow.TimestampType).Unit).UTC()
+				// Truncate to millisecond precision to match Gremlin's Java Date storage
+				dbArr[i] = a.Value(i).ToTime(a.DataType().(*arrow.TimestampType).Unit).UTC().Truncate(time.Millisecond)
 				continue
 			}
 			dbArr[i] = a.Value(i).ToTime(a.DataType().(*arrow.TimestampType).Unit).UTC().Format("2006-01-02 15:04:05.999999999")
@@ -60,7 +61,7 @@ func (c *Client) transformArr(arr arrow.Array, isCQTime bool) []any {
 	return dbArr
 }
 
-func (c *Client) transformValues(r arrow.Record, cqTimeIndex int) []map[string]any {
+func (c *Client) transformValues(r arrow.RecordBatch, cqTimeIndex int) []map[string]any {
 	results := make([]map[string]any, r.NumRows())
 
 	for i := range results {
@@ -87,7 +88,7 @@ func reverseTransform(f arrow.Field, bldr array.Builder, val any) error {
 		return nil
 	}
 	if str, ok := val.(string); ok {
-		return bldr.AppendValueFromString(str)
+		return appendFromString(bldr, str)
 	}
 
 	switch b := bldr.(type) {
@@ -148,14 +149,14 @@ func reverseTransform(f arrow.Field, bldr array.Builder, val any) error {
 		if !ok {
 			return fmt.Errorf("unsupported type %T with builder %T", val, bldr)
 		}
-		if err := bldr.AppendValueFromString(v); err != nil {
+		if err := appendFromString(bldr, v); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func reverseTransformer(sc *arrow.Schema, data map[any]any) (arrow.Record, error) {
+func reverseTransformer(sc *arrow.Schema, data map[any]any) (arrow.RecordBatch, error) {
 	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
 
 	for i, f := range sc.Fields() {
@@ -173,6 +174,6 @@ func reverseTransformer(sc *arrow.Schema, data map[any]any) (arrow.Record, error
 			return nil, err
 		}
 	}
-	rec := bldr.NewRecord()
+	rec := bldr.NewRecordBatch()
 	return rec, nil
 }

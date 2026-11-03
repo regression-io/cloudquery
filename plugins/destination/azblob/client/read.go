@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	if !c.spec.NoRotate {
 		return fmt.Errorf("reading is not supported when `no_rotate` is false. Table: %q", table.Name)
 	}

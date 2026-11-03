@@ -2,7 +2,7 @@ package client
 
 import (
 	_ "embed"
-	"fmt"
+	"errors"
 	"strings"
 )
 
@@ -23,6 +23,15 @@ type Spec struct {
 	// to the correct values. Specified in `key=value` format. Use `key=` to specify
 	// that the environment variable should be not set or empty.
 	RequiredEnv []string `json:"required_env" jsonschema:"pattern=^[\\w]+\\=[\\w]*$"`
+
+	// If true, the plugin will fail immediately at the table resolver level, before any resources are synced
+	FailImmediately bool `json:"fail_immediately" jsonschema:"default=false"`
+
+	// If true, the plugin will os.Exit(1) immediately at the table resolver level, before any resources are synced
+	ExitImmediately bool `json:"exit_immediately" jsonschema:"default=false"`
+
+	// If set, the plugin will send a request to delete the records with the given resource_id's in test_some_table (after syncing them).
+	DeleteRecords []int64 `json:"delete_records" jsonschema:"default=false"`
 }
 
 //go:embed schema.json
@@ -52,7 +61,7 @@ func (s *Spec) SetDefaults() {
 func (s *Spec) Validate() error {
 	for _, v := range s.RequiredEnv {
 		if strings.Count(v, "=") != 1 {
-			return fmt.Errorf("required_env must be in the format `key=value`")
+			return errors.New("required_env must be in the format `key=value`")
 		}
 	}
 	return nil

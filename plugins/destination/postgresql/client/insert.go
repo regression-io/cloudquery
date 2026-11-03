@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/avast/retry-go/v5"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/jackc/pgx/v5"
@@ -41,7 +42,19 @@ func (c *Client) InsertBatch(ctx context.Context, messages message.WriteInserts)
 		return err
 	}
 
+	if c.useCopyFrom() {
+		return c.insertBatchCopy(ctx, messages, pgTables)
+	}
+	return c.insertBatchExec(ctx, messages, pgTables)
+}
+
+// The fallback for anything useCopyFrom excludes, and the only path that
+// supports pgvector.
+func (c *Client) insertBatchExec(ctx context.Context, messages message.WriteInserts, pgTables map[string]struct{}) error {
 	batch := new(pgx.Batch)
+
+	// Accumulate embeddings per table to insert after each successful base flush
+	tableToEmbBatch := make(map[string]*embeddingBatch)
 
 	// Queries cache.
 	// We may consider LRU cache in the future, but even for 10K records it may be OK to just save.
@@ -52,7 +65,7 @@ func (c *Client) InsertBatch(ctx context.Context, messages message.WriteInserts)
 		md := r.Schema().Metadata()
 		tableName, ok := md.GetValue(schema.MetadataTableName)
 		if !ok {
-			return fmt.Errorf("table name not found in metadata")
+			return errors.New("table name not found in metadata")
 		}
 
 		if _, ok := pgTables[tableName]; !ok {
@@ -75,33 +88,63 @@ func (c *Client) InsertBatch(ctx context.Context, messages message.WriteInserts)
 		for _, rowVals := range rows {
 			batch.Queue(sql, rowVals...)
 		}
-		if batch.Len() >= c.batchSize {
+
+		// If pgvector is configured and this table has a config, accumulate embeddings work
+		if c.hasPgVectorConfig() && c.embeddingsRequester != nil && c.spec.GetPgVectorTableConfig(tableName) != nil {
+			err := c.addEmbeddingRows(ctx, tableToEmbBatch, tableName, msg.GetTable(), r, rows)
+			if err != nil {
+				return err
+			}
+		}
+		if int64(batch.Len()) >= c.batchSize {
 			if err := c.flushBatch(ctx, batch); err != nil {
 				return err
 			}
+			// After base rows are flushed, insert/upsert embeddings for accumulated tables
+			if err := c.insertEmbeddingsBatch(ctx, tableToEmbBatch); err != nil {
+				return err
+			}
+			// Reset for next chunk
+			tableToEmbBatch = make(map[string]*embeddingBatch)
 			batch = new(pgx.Batch)
 		}
 	}
 
-	return c.flushBatch(ctx, batch)
+	if err := c.flushBatch(ctx, batch); err != nil {
+		return err
+	}
+	return c.insertEmbeddingsBatch(ctx, tableToEmbBatch)
+}
+
+// fn must be safe to re-run: anything it consumes has to be rewound first.
+func (c *Client) retryOnDeadlock(fn func() error, msg string) error {
+	retrier := retry.New(
+		retry.RetryIf(func(err error) bool {
+			var pgErr *pgconn.PgError
+			return errors.As(err, &pgErr) && pgErr.Code == "40P01"
+		}),
+		retry.Attempts(uint(c.spec.RetryOnDeadlock)+1),
+		retry.LastErrorOnly(true),
+	)
+
+	err := retrier.Do(fn)
+	if err == nil {
+		return nil
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return fmt.Errorf("%s with pgerror: %s: %w", msg, pgErrToStr(pgErr), err)
+	}
+	return fmt.Errorf("%s: %w", msg, err)
 }
 
 func (c *Client) flushBatch(ctx context.Context, batch *pgx.Batch) error {
 	if batch.Len() == 0 {
 		return nil
 	}
-	err := c.conn.SendBatch(ctx, batch).Close()
-	if err == nil {
-		return nil
-	}
-
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return fmt.Errorf("failed to execute batch with pgerror: %s: %w", pgErrToStr(pgErr), err)
-	}
-
-	// not recoverable error
-	return fmt.Errorf("failed to execute batch: %w", err)
+	return c.retryOnDeadlock(func() error {
+		return c.conn.SendBatch(ctx, batch).Close()
+	}, "failed to execute batch")
 }
 
 func (*Client) insert(table *schema.Table) string {
@@ -168,7 +211,11 @@ func (c *Client) upsertCrateDB(table *schema.Table) string {
 		return sb.String()
 	}
 	pks := table.PrimaryKeys()
-	sb.WriteString(fmt.Sprintf(" on conflict (%s) ", strings.Join(pks, ",")))
+	sanitizedPKs := make([]string, len(pks))
+	for i := range pks {
+		sanitizedPKs[i] = pgx.Identifier{pks[i]}.Sanitize()
+	}
+	sb.WriteString(fmt.Sprintf(" on conflict (%s) ", strings.Join(sanitizedPKs, ",")))
 
 	sb.WriteString(" do update set ")
 	cols := make([]string, 0, len(columns)-len(pks))

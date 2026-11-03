@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/cloudquery/cloudquery/plugins/destination/s3/client/spec/spec",
+  "$id": "https://github.com/cloudquery/cloudquery/plugins/destination/s3/v7/client/spec/spec",
   "$ref": "#/$defs/Spec",
   "$defs": {
     "CSVSpec": {
@@ -21,6 +21,38 @@
       "type": "object",
       "description": "CloudQuery CSV file output spec."
     },
+    "Credentials": {
+      "properties": {
+        "local_profile": {
+          "type": "string",
+          "description": "[Local profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) to use to authenticate this account with.\nPlease note this should be set to the name of the profile.\n\nFor example, with the following credentials file:\n\n  ```ini copy\n  [default]\n  aws_access_key_id=xxxx\n  aws_secret_access_key=xxxx\n\n  [user1]\n  aws_access_key_id=xxxx\n  aws_secret_access_key=xxxx\n  ```\n\n`local_profile` should be set to either `default` or `user1`.",
+          "examples": [
+            "my_aws_profile"
+          ]
+        },
+        "role_arn": {
+          "type": "string",
+          "pattern": "^(arn(:[^:\n]*){5}([:/].*)?)?$",
+          "description": "If specified will use this to assume role."
+        },
+        "role_session_name": {
+          "type": "string",
+          "description": "If specified will use this session name when assume role to `role_arn`.",
+          "examples": [
+            "my_aws_role_session_name"
+          ]
+        },
+        "external_id": {
+          "type": "string",
+          "description": "If specified will use this when assuming role to `role_arn`.",
+          "examples": [
+            "external_id"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Duration": {
       "type": "string",
       "pattern": "^[-+]?([0-9]*(\\.[0-9]*)?[a-z]+)+$",
@@ -32,6 +64,36 @@
       "description": "CloudQuery JSON file output spec."
     },
     "ParquetSpec": {
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": [
+            "v1.0",
+            "v2.4",
+            "v2.6",
+            "v2Latest"
+          ],
+          "description": "Parquet format version",
+          "default": "v2Latest"
+        },
+        "root_repetition": {
+          "type": "string",
+          "enum": [
+            "undefined",
+            "required",
+            "optional",
+            "repeated"
+          ],
+          "description": "Root repetition. This option is kept for compatibility. Since arrow-go v18.6.0, the Parquet writer does not write the root repetition. The value has no effect on the file.",
+          "default": "repeated"
+        },
+        "max_row_group_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum number of rows per Parquet row group.",
+          "default": 1048576
+        }
+      },
       "additionalProperties": false,
       "type": "object",
       "description": "CloudQuery Parquet file output spec."
@@ -311,6 +373,23 @@
           "minLength": 1,
           "description": "Region where bucket is located."
         },
+        "local_profile": {
+          "type": "string",
+          "description": "[Local profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) to use to authenticate this account with.\nShould be set to the name of the profile.\n\nFor example, with the following credentials file:\n\n  ```ini copy\n  [default]\n  aws_access_key_id=xxxx\n  aws_secret_access_key=xxxx\n\n  [user1]\n  aws_access_key_id=xxxx\n  aws_secret_access_key=xxxx\n  ```\n\n`local_profile` should be set to either `default` or `user1`.",
+          "examples": [
+            "my_aws_profile"
+          ]
+        },
+        "credentials": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Credentials"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "path": {
           "type": "string",
           "pattern": "^[^/].*$",
@@ -373,6 +452,10 @@
           "description": "Disable TLS verification for requests to your S3 endpoint.\n\nThis option is intended to be used when using a custom endpoint using the `endpoint` option.",
           "default": false
         },
+        "acl": {
+          "type": "string",
+          "default": ""
+        },
         "write_empty_objects_for_empty_tables": {
           "type": "boolean",
           "description": "If set to `true`, the plugin will create empty parquet files with the table headers and data types for those tables that have no data.",
@@ -410,6 +493,47 @@
               "$ref": "#/$defs/Duration",
               "description": "Maximum interval between batch writes.\n\nDefaults to `30s` unless `no_rotate` is `true` (will be `0s` then).",
               "default": "30s"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "aws_debug": {
+          "type": "boolean",
+          "description": "If `true`, will log AWS debug logs, including retries and other request/response metadata. Requires passing `--log-level debug` to the CloudQuery CLI.",
+          "default": false
+        },
+        "max_retries": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "Defines the maximum number of times an API request will be retried.",
+              "default": 3
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_backoff": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "Defines the duration between retry attempts.",
+              "default": 30
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "part_size": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "description": "Defines the maximum size of each part in the multipart upload.",
+              "default": 5242880
             },
             {
               "type": "null"

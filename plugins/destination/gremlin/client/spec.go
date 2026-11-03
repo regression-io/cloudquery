@@ -2,13 +2,14 @@ package client
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"runtime"
 	"slices"
 	"strings"
 
 	"github.com/invopop/jsonschema"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
+	orderedmap "github.com/pb33f/ordered-map/v2"
 )
 
 type Spec struct {
@@ -45,10 +46,10 @@ type Spec struct {
 	CompleteTypes bool `json:"complete_types" jsonschema:"default=false"`
 
 	// Number of records to batch together before sending to the database.
-	BatchSize int `json:"batch_size" jsonschema:"minimum=1,default=200"`
+	BatchSize int64 `json:"batch_size" jsonschema:"minimum=1,default=200"`
 
 	// Number of bytes (as Arrow buffer size) to batch together before sending to the database.
-	BatchSizeBytes int `json:"batch_size_bytes" jsonschema:"minimum=1,default=4194304"`
+	BatchSizeBytes int64 `json:"batch_size_bytes" jsonschema:"minimum=1,default=4194304"`
 }
 
 type authMode string
@@ -99,7 +100,7 @@ func (s *Spec) SetDefaults() {
 
 func (s *Spec) Validate() error {
 	if s.Endpoint == "" {
-		return fmt.Errorf("endpoint is required")
+		return errors.New("endpoint is required")
 	}
 	allowedAuthModes := []authMode{"", authModeNone, authModeBasic, authModeAWS}
 	if !slices.Contains(allowedAuthModes, s.AuthMode) {

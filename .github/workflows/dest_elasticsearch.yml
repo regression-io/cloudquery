@@ -16,6 +16,9 @@ on:
       - "plugins/destination/elasticsearch/**"
       - ".github/workflows/dest_elasticsearch.yml"
 
+permissions:
+  contents: read
+
 jobs:
   plugins-destination-elasticsearch:
     timeout-minutes: 10
@@ -24,38 +27,30 @@ jobs:
     defaults:
       run:
         working-directory: ./plugins/destination/elasticsearch
-    services:
-      elasticsearch:
-        image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
-        ports:
-          - 9200:9200
-        options: >-
-          --health-cmd "curl -s -f http://localhost:9200/_cluster/health"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-        env:
-          discovery.type: single-node
-          xpack.security.enabled: false
-          ES_JAVA_OPTS: -Xms512m -Xmx512m
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
       - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+        id: setup-go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: plugins/destination/elasticsearch/go.mod
-          cache: true
-          cache-dependency-path: plugins/destination/elasticsearch/go.sum
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+          cache: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
-          version: v1.55.2
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-destination-elasticsearch-${{ hashFiles('plugins/destination/elasticsearch/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ steps.setup-go.outputs.go-version }}-test-destination-elasticsearch-
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: v2.15.0
           working-directory: plugins/destination/elasticsearch
           args: "--config ../../.golangci.yml"
-          skip-pkg-cache: true
-          skip-build-cache: true
       - name: gen
         if: github.event_name == 'pull_request'
         run: make gen
@@ -66,4 +61,3 @@ jobs:
         run: go build .
       - name: Test
         run: make test
-  

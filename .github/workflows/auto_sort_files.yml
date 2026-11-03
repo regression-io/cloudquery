@@ -5,14 +5,25 @@ on:
   schedule:
     - cron:  "0 0 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   sort-file:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.CQ_APP_ID }}
+          private-key: ${{ secrets.CQ_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "lts/*"
       - name: Install tools
@@ -24,14 +35,13 @@ jobs:
           jsonsort release-please-config.json
           yaml-sort -i .github/pr_labeler.yml
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v4
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           # required so the PR triggers workflow runs
-          token: ${{ secrets.GH_CQ_BOT }}
+          token: ${{ steps.app-token.outputs.token }}
           branch: chore/sort-files
           base: main
           title: "chore: Sort files"
           commit-message: "chore: Sort files"
           body: This PR was created by a scheduled workflow to sort files to avoid git conflicts.
-          author: cq-bot <cq-bot@users.noreply.github.com>
           labels: automerge

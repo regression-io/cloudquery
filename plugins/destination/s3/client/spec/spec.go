@@ -1,16 +1,18 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/cloudquery/filetypes/v4"
 	"github.com/cloudquery/plugin-sdk/v4/configtype"
-
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 const (
@@ -34,6 +36,26 @@ type Spec struct {
 
 	// Region where bucket is located.
 	Region string `json:"region,omitempty" jsonschema:"required,minLength=1"`
+
+	// [Local profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) to use to authenticate this account with.
+	// Should be set to the name of the profile.
+	//
+	// For example, with the following credentials file:
+	//
+	//   ```ini copy
+	//   [default]
+	//   aws_access_key_id=xxxx
+	//   aws_secret_access_key=xxxx
+	//
+	//   [user1]
+	//   aws_access_key_id=xxxx
+	//   aws_secret_access_key=xxxx
+	//   ```
+	//
+	// `local_profile` should be set to either `default` or `user1`.
+	LocalProfile string `json:"local_profile,omitempty" jsonschema:"example=my_aws_profile"`
+
+	Credentials *Credentials `json:"credentials,omitempty"`
 
 	//    Path to where the files will be uploaded in the above bucket, for example `path/to/files/{{TABLE}}/{{UUID}}.parquet`.
 	//    The path supports the following placeholder variables:
@@ -85,6 +107,8 @@ type Spec struct {
 	// This option is intended to be used when using a custom endpoint using the `endpoint` option.
 	EndpointSkipTLSVerify bool `json:"endpoint_skip_tls_verify,omitempty" jsonschema:"default=false"`
 
+	ACL string `json:"acl,omitempty" jsonschema:"default="`
+
 	// If set to `true`, the plugin will create empty parquet files with the table headers and data types for those tables that have no data.
 	GenerateEmptyObjects bool `json:"write_empty_objects_for_empty_tables,omitempty" jsonschema:"default=false"`
 
@@ -102,6 +126,18 @@ type Spec struct {
 	//
 	// Defaults to `30s` unless `no_rotate` is `true` (will be `0s` then).
 	BatchTimeout *configtype.Duration `json:"batch_timeout" jsonschema:"default=30s"`
+
+	// If `true`, will log AWS debug logs, including retries and other request/response metadata. Requires passing `--log-level debug` to the CloudQuery CLI.
+	AWSDebug bool `json:"aws_debug,omitempty" jsonschema:"default=false"`
+
+	// Defines the maximum number of times an API request will be retried.
+	MaxRetries *int `json:"max_retries,omitempty" jsonschema:"default=3"`
+
+	// Defines the duration between retry attempts.
+	MaxBackoff *int `json:"max_backoff,omitempty" jsonschema:"default=30"`
+
+	// Defines the maximum size of each part in the multipart upload.
+	PartSize *int64 `json:"part_size,omitempty" jsonschema:"default=5242880"` // 5 MiB
 }
 
 type ServerSideEncryptionConfiguration struct {
@@ -148,42 +184,74 @@ func (s *Spec) SetDefaults() {
 			s.BatchTimeout = &d
 		}
 	}
+
+	if s.LocalProfile != "" {
+		s.Credentials = &Credentials{
+			LocalProfile: s.LocalProfile,
+		}
+	}
+
+	if s.MaxRetries == nil {
+		maxRetries := 3
+		s.MaxRetries = &maxRetries
+	}
+
+	if s.MaxBackoff == nil {
+		maxBackoff := 30
+		s.MaxBackoff = &maxBackoff
+	}
+	if s.PartSize == nil {
+		maxPartSize := manager.DefaultUploadPartSize
+		s.PartSize = &maxPartSize
+	}
 }
 
 func (s *Spec) Validate() error {
 	if len(s.Bucket) == 0 {
-		return fmt.Errorf("`bucket` is required")
+		return errors.New("`bucket` is required")
 	}
 	if len(s.Region) == 0 {
-		return fmt.Errorf("`region` is required")
+		return errors.New("`region` is required")
 	}
 
 	if len(s.Path) == 0 {
-		return fmt.Errorf("`path` is required")
+		return errors.New("`path` is required")
 	}
 	if path.IsAbs(s.Path) {
-		return fmt.Errorf("`path` should not start with a \"/\"")
+		return errors.New("`path` should not start with a \"/\"")
 	}
 	if s.Path != path.Clean(s.Path) {
-		return fmt.Errorf("`path` should not contain relative paths or duplicate slashes")
+		return errors.New("`path` should not contain relative paths or duplicate slashes")
 	}
 
 	if s.GenerateEmptyObjects && s.Format != filetypes.FormatTypeParquet {
-		return fmt.Errorf("`write_empty_objects_for_empty_tables` can only be used with `parquet` format")
+		return errors.New("`write_empty_objects_for_empty_tables` can only be used with `parquet` format")
 	}
 
+	if s.LocalProfile != "" && (s.Credentials != nil && (s.Credentials.RoleARN != "" || s.Credentials.RoleSessionName != "" || s.Credentials.ExternalID != "" || s.Credentials.LocalProfile != "")) {
+		return errors.New("`local_profile` cannot be used with `credentials`")
+	}
 	if s.NoRotate {
 		if strings.Contains(s.Path, varUUID) {
 			return fmt.Errorf("`path` should not contain %s when `no_rotate` = true", varUUID)
 		}
 
 		if (s.BatchSize != nil && *s.BatchSize > 0) || (s.BatchSizeBytes != nil && *s.BatchSizeBytes > 0) || (s.BatchTimeout != nil && s.BatchTimeout.Duration() > 0) {
-			return fmt.Errorf("`no_rotate` cannot be used with non-zero `batch_size`, `batch_size_bytes` or `batch_timeout_ms`")
+			return errors.New("`no_rotate` cannot be used with non-zero `batch_size`, `batch_size_bytes` or `batch_timeout_ms`")
 		}
 	}
 
 	if !strings.Contains(s.Path, varUUID) && s.batchingEnabled() {
 		return fmt.Errorf("`path` should contain %s when using a non-zero `batch_size`, `batch_size_bytes` or `batch_timeout_ms`", varUUID)
+	}
+
+	if s.ACL != "" {
+		acl := types.ObjectCannedACL(s.ACL)
+		cannedACLS := acl.Values()
+
+		if !slices.Contains(cannedACLS, acl) {
+			return fmt.Errorf("invalid `acl` value: %s", s.ACL)
+		}
 	}
 
 	// required for s.FileSpec.Validate call

@@ -1,5 +1,673 @@
 # Changelog
 
+## [3.4.49](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.48...scaffold-v3.4.49) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** Update dependency pytest to v9.0.3 [SECURITY] ([#23069](https://github.com/cloudquery/cloudquery/issues/23069)) ([4f3b70b](https://github.com/cloudquery/cloudquery/commit/4f3b70b3324698820baf74f4f7060762699e8fa3))
+* **deps:** Update dependency pytest to v9.0.3 [SECURITY] ([#23114](https://github.com/cloudquery/cloudquery/issues/23114)) ([75a37bb](https://github.com/cloudquery/cloudquery/commit/75a37bb413b200f39e8f58a638b84996ecc57092))
+* **deps:** Update go module directive to v1.26.5 ([#23182](https://github.com/cloudquery/cloudquery/issues/23182)) ([e8bc921](https://github.com/cloudquery/cloudquery/commit/e8bc9211beeec85bf5e76ab673968377a74f0cab))
+* **deps:** Update go module directive to v1.26.6 ([#23344](https://github.com/cloudquery/cloudquery/issues/23344)) ([bfc2d40](https://github.com/cloudquery/cloudquery/commit/bfc2d406c5a6806479ca5b2313977324bdcd7c70))
+* **deps:** Update go module directive to v1.27.1 ([#23402](https://github.com/cloudquery/cloudquery/issues/23402)) ([9e24c06](https://github.com/cloudquery/cloudquery/commit/9e24c066c451a1e3ae0576a45c9447e938909e19))
+* **deps:** Update go module directive to v1.27.3 ([#23580](https://github.com/cloudquery/cloudquery/issues/23580)) ([9d1c1b3](https://github.com/cloudquery/cloudquery/commit/9d1c1b37650263b7081296a5a5a0a77fbf8abf93))
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.7.0 ([#23163](https://github.com/cloudquery/cloudquery/issues/23163)) ([7df4831](https://github.com/cloudquery/cloudquery/commit/7df4831f6f83607541b187dd2bb40ad366465897))
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.8.0 ([#23409](https://github.com/cloudquery/cloudquery/issues/23409)) ([825ffd6](https://github.com/cloudquery/cloudquery/commit/825ffd66b700680e65d8119853b2b70072187ee7))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.16 ([#23245](https://github.com/cloudquery/cloudquery/issues/23245)) ([5624401](https://github.com/cloudquery/cloudquery/commit/562440186ab60874b0d0a4471ceeea66e3a9b1f2))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.17 ([#23275](https://github.com/cloudquery/cloudquery/issues/23275)) ([1591dd6](https://github.com/cloudquery/cloudquery/commit/1591dd6f58527db5f578fbb60b2fe55b91fd8feb))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.18 ([#23329](https://github.com/cloudquery/cloudquery/issues/23329)) ([7c15359](https://github.com/cloudquery/cloudquery/commit/7c15359c74cecef3a26e1ba415f2467adc2304ee))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.19 ([#23333](https://github.com/cloudquery/cloudquery/issues/23333)) ([5df8b4e](https://github.com/cloudquery/cloudquery/commit/5df8b4edbc99a8d652283fe6323a4d0a82b47771))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.20 ([#23337](https://github.com/cloudquery/cloudquery/issues/23337)) ([c5f8420](https://github.com/cloudquery/cloudquery/commit/c5f842012726fa30f1aeb70fa22e5c52b8e336eb))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.21 ([#23343](https://github.com/cloudquery/cloudquery/issues/23343)) ([6dd430e](https://github.com/cloudquery/cloudquery/commit/6dd430ed8a02c06992775b5c5dc1ee5805e2df32))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.22 ([#23394](https://github.com/cloudquery/cloudquery/issues/23394)) ([59cd151](https://github.com/cloudquery/cloudquery/commit/59cd1512d299692a11ad59924aac944ae027981d))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.23 ([#23413](https://github.com/cloudquery/cloudquery/issues/23413)) ([8a09015](https://github.com/cloudquery/cloudquery/commit/8a09015410f0b6a3aa300dba3ddfa0bf0fb7b609))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.24 ([#23484](https://github.com/cloudquery/cloudquery/issues/23484)) ([3e65dc5](https://github.com/cloudquery/cloudquery/commit/3e65dc55d6c7ea36fb52f473a351b324eab484fc))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.28.0 ([#23494](https://github.com/cloudquery/cloudquery/issues/23494)) ([4030a50](https://github.com/cloudquery/cloudquery/commit/4030a50a5d7be4a08a677ef4a8fea2ae88e73c83))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.28.1 ([#23500](https://github.com/cloudquery/cloudquery/issues/23500)) ([f319864](https://github.com/cloudquery/cloudquery/commit/f31986406f2e8d04b6cdc5cba9827ba75dba901e))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.28.2 ([#23551](https://github.com/cloudquery/cloudquery/issues/23551)) ([c44b66d](https://github.com/cloudquery/cloudquery/commit/c44b66de1727a38e5033a2f851e32af01ba19e3a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.1 ([#23230](https://github.com/cloudquery/cloudquery/issues/23230)) ([8a1d479](https://github.com/cloudquery/cloudquery/commit/8a1d479a3cfe7a2b829773774f899c7b1da9a4d5))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.2 ([#23277](https://github.com/cloudquery/cloudquery/issues/23277)) ([d15a83d](https://github.com/cloudquery/cloudquery/commit/d15a83ddc3c2e8af081afa2745f1a54a9cec62ab))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.3 ([#23330](https://github.com/cloudquery/cloudquery/issues/23330)) ([2502476](https://github.com/cloudquery/cloudquery/commit/2502476eb0933484ce7acb933b3b3c31b2ad4dea))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.4 ([#23389](https://github.com/cloudquery/cloudquery/issues/23389)) ([c7dc863](https://github.com/cloudquery/cloudquery/commit/c7dc86388bdc63e5eb663fdd36d70e8f99226d0d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.96.6 ([#23414](https://github.com/cloudquery/cloudquery/issues/23414)) ([21c5ffe](https://github.com/cloudquery/cloudquery/commit/21c5ffe0dc57ed3bb7edd97026622b3068a151b5))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.97.0 ([#23485](https://github.com/cloudquery/cloudquery/issues/23485)) ([8684fe0](https://github.com/cloudquery/cloudquery/commit/8684fe076608257d1870ab12a0881f4998e6a7c9))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.98.0 ([#23486](https://github.com/cloudquery/cloudquery/issues/23486)) ([0787ffa](https://github.com/cloudquery/cloudquery/commit/0787ffa4957b19d8291212dc97ac4f1e8de8251b))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.99.0 ([#23567](https://github.com/cloudquery/cloudquery/issues/23567)) ([e42450d](https://github.com/cloudquery/cloudquery/commit/e42450d1d35ee7d5c15af590ee7189088a2bb0e7))
+* Make scaffolded source plugins pass their own CI ([#23357](https://github.com/cloudquery/cloudquery/issues/23357)) ([610e548](https://github.com/cloudquery/cloudquery/commit/610e5481e6d349ac44d9ca010e70fb801dae4522))
+
+## [3.4.48](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.47...scaffold-v3.4.48) (2026-07-09)
+
+
+### Bug Fixes
+
+* **deps:** Update go module directive to v1.26.4 ([#22996](https://github.com/cloudquery/cloudquery/issues/22996)) ([4c6a6b1](https://github.com/cloudquery/cloudquery/commit/4c6a6b19b9c85ea3f69276a77b9213d76bf744c5))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.3 ([#22946](https://github.com/cloudquery/cloudquery/issues/22946)) ([b9aac1f](https://github.com/cloudquery/cloudquery/commit/b9aac1f3ab9eb846bb165aa2978be314ee6b8eaf))
+* **deps:** Update module golang.org/x/net to v0.56.0 ([#23033](https://github.com/cloudquery/cloudquery/issues/23033)) ([43c367a](https://github.com/cloudquery/cloudquery/commit/43c367a645b5e26781b06039a0780cffb40bb2cd))
+
+## [3.4.47](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.46...scaffold-v3.4.47) (2026-06-02)
+
+
+### Bug Fixes
+
+* **deps:** Update go module directive to v1.26.3 ([#22869](https://github.com/cloudquery/cloudquery/issues/22869)) ([ce8d270](https://github.com/cloudquery/cloudquery/commit/ce8d270429e6503b849910035b761effcdbe62ab))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.2 ([#22836](https://github.com/cloudquery/cloudquery/issues/22836)) ([86c88b9](https://github.com/cloudquery/cloudquery/commit/86c88b9ce6a26cc85e4503c7507c24c5b22581e3))
+
+## [3.4.46](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.45...scaffold-v3.4.46) (2026-05-12)
+
+
+### Bug Fixes
+
+* **deps:** Update dependency go to v1.26.2 ([#22805](https://github.com/cloudquery/cloudquery/issues/22805)) ([59aeaf3](https://github.com/cloudquery/cloudquery/commit/59aeaf3355ed1b82e8675944d6ea3d48d5f80a39))
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.6.0 ([#22806](https://github.com/cloudquery/cloudquery/issues/22806)) ([2a7e7d2](https://github.com/cloudquery/cloudquery/commit/2a7e7d21a005267915db763397c1e415e37405da))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.15 ([#22810](https://github.com/cloudquery/cloudquery/issues/22810)) ([c12068d](https://github.com/cloudquery/cloudquery/commit/c12068d46aad7fa31a8b0f65aa0c6543f1946df8))
+* **deps:** Update module github.com/rs/zerolog to v1.35.1 ([#22784](https://github.com/cloudquery/cloudquery/issues/22784)) ([7aa1d85](https://github.com/cloudquery/cloudquery/commit/7aa1d854e61a499efb5b6f181524719b60309905))
+* **deps:** Update module golang.org/x/term to v0.42.0 ([#22786](https://github.com/cloudquery/cloudquery/issues/22786)) ([b4a7483](https://github.com/cloudquery/cloudquery/commit/b4a7483737409bc227704cbe49f9cfe515e89a5d))
+* **deps:** Update module google.golang.org/api to v0.275.0 ([#22590](https://github.com/cloudquery/cloudquery/issues/22590)) ([0e4cedc](https://github.com/cloudquery/cloudquery/commit/0e4cedc995e977a7dded30b2abeaf916c95abb90))
+
+## [3.4.45](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.44...scaffold-v3.4.45) (2026-04-03)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.13 ([#22353](https://github.com/cloudquery/cloudquery/issues/22353)) ([574b592](https://github.com/cloudquery/cloudquery/commit/574b592b112f1734f5cf701f325bf82b6db98687))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.14 ([#22460](https://github.com/cloudquery/cloudquery/issues/22460)) ([b91e5f1](https://github.com/cloudquery/cloudquery/commit/b91e5f176e9ac4d981b790a9fc53b7b9278eaa09))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.1 ([#22461](https://github.com/cloudquery/cloudquery/issues/22461)) ([86d7bb6](https://github.com/cloudquery/cloudquery/commit/86d7bb6510172cd6d7c6ce78a1a468339465c307))
+
+## [3.4.44](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.43...scaffold-v3.4.44) (2026-03-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.10 ([#22317](https://github.com/cloudquery/cloudquery/issues/22317)) ([3302565](https://github.com/cloudquery/cloudquery/commit/3302565456362aeb1178ad6079c498906f51a03c))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.11 ([#22343](https://github.com/cloudquery/cloudquery/issues/22343)) ([f435d9d](https://github.com/cloudquery/cloudquery/commit/f435d9dd35c42ee1e8ab98fc0fafab79ea0aa7c9))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.9 ([#22315](https://github.com/cloudquery/cloudquery/issues/22315)) ([683717b](https://github.com/cloudquery/cloudquery/commit/683717b495a21914efa0a494c736ace89affdb69))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.6 ([#22318](https://github.com/cloudquery/cloudquery/issues/22318)) ([ddde2f0](https://github.com/cloudquery/cloudquery/commit/ddde2f052123ca5561f0e67ea77c14d5bff53cef))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.7 ([#22338](https://github.com/cloudquery/cloudquery/issues/22338)) ([5d71062](https://github.com/cloudquery/cloudquery/commit/5d71062b1d6c2b7cbce4539beedbbbc6c5361819))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.95.0 ([#22354](https://github.com/cloudquery/cloudquery/issues/22354)) ([35ed376](https://github.com/cloudquery/cloudquery/commit/35ed3768dfc3691f22b21ab863ecd7f1f96665b5))
+* Update old subdomain URLs to new path-based domains ([#22319](https://github.com/cloudquery/cloudquery/issues/22319)) ([a7cec25](https://github.com/cloudquery/cloudquery/commit/a7cec25bfcedc0a6f8b147ec6ee7b84bf02ed65c))
+
+## [3.4.43](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.42...scaffold-v3.4.43) (2026-03-16)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.5.2 ([#22195](https://github.com/cloudquery/cloudquery/issues/22195)) ([6a70686](https://github.com/cloudquery/cloudquery/commit/6a70686dff5903bc0f37b8695ddc6c9f7e3339d0))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.8 ([#22218](https://github.com/cloudquery/cloudquery/issues/22218)) ([e8d8607](https://github.com/cloudquery/cloudquery/commit/e8d86071b031e1b6726258e215422834d1204746))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.4 ([#22219](https://github.com/cloudquery/cloudquery/issues/22219)) ([f3899b3](https://github.com/cloudquery/cloudquery/commit/f3899b3c4e525fc6302db9a995e25979b219cc29))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.5 ([#22222](https://github.com/cloudquery/cloudquery/issues/22222)) ([96f95cd](https://github.com/cloudquery/cloudquery/commit/96f95cdede05015fb1ed266034f02be1409395f3))
+
+## [3.4.42](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.41...scaffold-v3.4.42) (2026-02-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.7 ([#22071](https://github.com/cloudquery/cloudquery/issues/22071)) ([281193b](https://github.com/cloudquery/cloudquery/commit/281193b41847fc1b9ddc9c6a460a029547ea6422))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.3 ([#22073](https://github.com/cloudquery/cloudquery/issues/22073)) ([5e82838](https://github.com/cloudquery/cloudquery/commit/5e82838e24b7eb17d437d14c56b2c7b34a1d8d2f))
+
+## [3.4.41](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.40...scaffold-v3.4.41) (2026-02-14)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.5.1 ([#21993](https://github.com/cloudquery/cloudquery/issues/21993)) ([33229b7](https://github.com/cloudquery/cloudquery/commit/33229b7ba1989ba9781aed5b350d3f7f7763628a))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.6 ([#22009](https://github.com/cloudquery/cloudquery/issues/22009)) ([1b096c3](https://github.com/cloudquery/cloudquery/commit/1b096c3ddc395200efa91cb29fbd11e6f33268bc))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.1 ([#22011](https://github.com/cloudquery/cloudquery/issues/22011)) ([eae949e](https://github.com/cloudquery/cloudquery/commit/eae949e5351053bbcb4f09e8f1dccd58d4a9016b))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.2 ([#22016](https://github.com/cloudquery/cloudquery/issues/22016)) ([1b5c4b1](https://github.com/cloudquery/cloudquery/commit/1b5c4b1385b3bc693c88f9700ecf49c66fa18ca8))
+* **deps:** Update module github.com/rs/zerolog to v1.34.0 ([#21920](https://github.com/cloudquery/cloudquery/issues/21920)) ([fdd4809](https://github.com/cloudquery/cloudquery/commit/fdd48096dd47afd27f6568677df0aef8dbb5f29a))
+* **deps:** Update module github.com/spf13/cobra to v1.10.2 ([#21923](https://github.com/cloudquery/cloudquery/issues/21923)) ([cfcaffa](https://github.com/cloudquery/cloudquery/commit/cfcaffa87c741d38aa5a15267cbd53deac995e88))
+
+## [3.4.40](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.39...scaffold-v3.4.40) (2026-01-15)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.94.0 ([#21811](https://github.com/cloudquery/cloudquery/issues/21811)) ([c22bc0a](https://github.com/cloudquery/cloudquery/commit/c22bc0a15bd69428eaed263a4de467a0d601b749))
+
+## [3.4.39](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.38...scaffold-v3.4.39) (2026-01-08)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.3 ([#21791](https://github.com/cloudquery/cloudquery/issues/21791)) ([d28a593](https://github.com/cloudquery/cloudquery/commit/d28a5939360b1223ee5f95015d499d2728e3d612))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.4 ([#21795](https://github.com/cloudquery/cloudquery/issues/21795)) ([86b4c7f](https://github.com/cloudquery/cloudquery/commit/86b4c7fab6c74ff7d910b5f0cd314498603f07dc))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.5 ([#21803](https://github.com/cloudquery/cloudquery/issues/21803)) ([326edbe](https://github.com/cloudquery/cloudquery/commit/326edbef6036e00855f583464b62f31217ffe7af))
+
+## [3.4.38](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.37...scaffold-v3.4.38) (2025-12-22)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.5.0 ([#21744](https://github.com/cloudquery/cloudquery/issues/21744)) ([9a9d322](https://github.com/cloudquery/cloudquery/commit/9a9d32233044f3a79d33b91103b89a24cc6348f1))
+
+## [3.4.37](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.36...scaffold-v3.4.37) (2025-12-19)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.27 ([#21641](https://github.com/cloudquery/cloudquery/issues/21641)) ([fdf115c](https://github.com/cloudquery/cloudquery/commit/fdf115c2f8290ec722bfcd59a752eee3935ec008))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.0 ([#21676](https://github.com/cloudquery/cloudquery/issues/21676)) ([7b917cc](https://github.com/cloudquery/cloudquery/commit/7b917ccfd9a03ccc11882dff4c72258348d27ed5))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.1 ([#21723](https://github.com/cloudquery/cloudquery/issues/21723)) ([d1f3f26](https://github.com/cloudquery/cloudquery/commit/d1f3f26d969441e2d2b9c62a8e78863ccdb216f6))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.27.2 ([#21724](https://github.com/cloudquery/cloudquery/issues/21724)) ([68d34df](https://github.com/cloudquery/cloudquery/commit/68d34dffa3231beb980946610b38f2eff508880f))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.92.1 ([#21682](https://github.com/cloudquery/cloudquery/issues/21682)) ([8a7596b](https://github.com/cloudquery/cloudquery/commit/8a7596bd5a15e4b79bdb26f385be9eaeafdae108))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.93.0 ([#21710](https://github.com/cloudquery/cloudquery/issues/21710)) ([f0f2c5b](https://github.com/cloudquery/cloudquery/commit/f0f2c5b5de8f3d3a5cb6a049f0035f17e9d7bbb6))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.93.1 ([#21725](https://github.com/cloudquery/cloudquery/issues/21725)) ([aa46079](https://github.com/cloudquery/cloudquery/commit/aa460797637559c010152c639d2d4363caf3491d))
+
+## [3.4.36](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.35...scaffold-v3.4.36) (2025-11-14)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.92.0 ([#21579](https://github.com/cloudquery/cloudquery/issues/21579)) ([496d29a](https://github.com/cloudquery/cloudquery/commit/496d29af60229bcf5b62f4641467bc6b9eda8e9c))
+
+## [3.4.35](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.34...scaffold-v3.4.35) (2025-11-06)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.26 ([#21572](https://github.com/cloudquery/cloudquery/issues/21572)) ([3c6b388](https://github.com/cloudquery/cloudquery/commit/3c6b3888b80d4d54e3f76722e51fcae9a6e79b8b))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.91.0 ([#21537](https://github.com/cloudquery/cloudquery/issues/21537)) ([db6f9a0](https://github.com/cloudquery/cloudquery/commit/db6f9a083ab8dddb21f15142b058dadb2a54d49e))
+
+## [3.4.34](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.33...scaffold-v3.4.34) (2025-10-30)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.25 ([#21348](https://github.com/cloudquery/cloudquery/issues/21348)) ([7ea185f](https://github.com/cloudquery/cloudquery/commit/7ea185fa22b7b31fd4c3d5f934db9645f3b13d4b))
+
+## [3.4.33](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.32...scaffold-v3.4.33) (2025-09-04)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.89.1 ([#21315](https://github.com/cloudquery/cloudquery/issues/21315)) ([cc51f55](https://github.com/cloudquery/cloudquery/commit/cc51f55e575336297662fd0d0495e919f020e71a))
+
+## [3.4.32](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.31...scaffold-v3.4.32) (2025-08-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.16 ([#21176](https://github.com/cloudquery/cloudquery/issues/21176)) ([64068c1](https://github.com/cloudquery/cloudquery/commit/64068c19ebcca61c363caa7ff2125e08e911f546))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.18 ([#21187](https://github.com/cloudquery/cloudquery/issues/21187)) ([eb3af75](https://github.com/cloudquery/cloudquery/commit/eb3af7595983521f4a07aed6f3a7f0fb44286b2a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.3 ([#21010](https://github.com/cloudquery/cloudquery/issues/21010)) ([c78cff9](https://github.com/cloudquery/cloudquery/commit/c78cff97ca8819ffc58a1ecb9fea7e2a9dbc1ffa))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.4 ([#21104](https://github.com/cloudquery/cloudquery/issues/21104)) ([44f77c8](https://github.com/cloudquery/cloudquery/commit/44f77c883bee4dd9cfc1f71f0cf4675452ed49ae))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.88.0 ([#21132](https://github.com/cloudquery/cloudquery/issues/21132)) ([1db1daa](https://github.com/cloudquery/cloudquery/commit/1db1daa7df2b3298ed84b4cc86d85bf8c128f037))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.88.1 ([#21164](https://github.com/cloudquery/cloudquery/issues/21164)) ([7450686](https://github.com/cloudquery/cloudquery/commit/745068650a195dcba4125b484b5f44ea6adcda75))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.89.0 ([#21238](https://github.com/cloudquery/cloudquery/issues/21238)) ([deb4cee](https://github.com/cloudquery/cloudquery/commit/deb4cee9012b1506d48db44de78d104b498813cf))
+
+## [3.4.31](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.30...scaffold-v3.4.31) (2025-08-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.89.0 ([#21238](https://github.com/cloudquery/cloudquery/issues/21238)) ([deb4cee](https://github.com/cloudquery/cloudquery/commit/deb4cee9012b1506d48db44de78d104b498813cf))
+
+## [3.4.30](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.29...scaffold-v3.4.30) (2025-07-31)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.16 ([#21176](https://github.com/cloudquery/cloudquery/issues/21176)) ([64068c1](https://github.com/cloudquery/cloudquery/commit/64068c19ebcca61c363caa7ff2125e08e911f546))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.18 ([#21187](https://github.com/cloudquery/cloudquery/issues/21187)) ([eb3af75](https://github.com/cloudquery/cloudquery/commit/eb3af7595983521f4a07aed6f3a7f0fb44286b2a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.88.0 ([#21132](https://github.com/cloudquery/cloudquery/issues/21132)) ([1db1daa](https://github.com/cloudquery/cloudquery/commit/1db1daa7df2b3298ed84b4cc86d85bf8c128f037))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.88.1 ([#21164](https://github.com/cloudquery/cloudquery/issues/21164)) ([7450686](https://github.com/cloudquery/cloudquery/commit/745068650a195dcba4125b484b5f44ea6adcda75))
+
+## [3.4.29](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.28...scaffold-v3.4.29) (2025-07-24)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.3 ([#21010](https://github.com/cloudquery/cloudquery/issues/21010)) ([c78cff9](https://github.com/cloudquery/cloudquery/commit/c78cff97ca8819ffc58a1ecb9fea7e2a9dbc1ffa))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.4 ([#21104](https://github.com/cloudquery/cloudquery/issues/21104)) ([44f77c8](https://github.com/cloudquery/cloudquery/commit/44f77c883bee4dd9cfc1f71f0cf4675452ed49ae))
+
+## [3.4.28](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.27...scaffold-v3.4.28) (2025-07-15)
+
+
+### Bug Fixes
+
+* **deps:** Update github.com/cloudquery/sjson digest to 737185f ([#21023](https://github.com/cloudquery/cloudquery/issues/21023)) ([60f00a1](https://github.com/cloudquery/cloudquery/commit/60f00a17ee6e5dbbec3f2160af5a2ffd4facc8e4))
+
+## [3.4.27](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.26...scaffold-v3.4.27) (2025-07-11)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.1 ([#20982](https://github.com/cloudquery/cloudquery/issues/20982)) ([5f23857](https://github.com/cloudquery/cloudquery/commit/5f2385702c9a50390b95104b05f5d211032d6d44))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.87.2 ([#21008](https://github.com/cloudquery/cloudquery/issues/21008)) ([67fc3e2](https://github.com/cloudquery/cloudquery/commit/67fc3e254eac125d19fb962551e543714a2d39dd))
+
+## [3.4.26](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.25...scaffold-v3.4.26) (2025-07-02)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.3.1 ([#20921](https://github.com/cloudquery/cloudquery/issues/20921)) ([3ea3bd6](https://github.com/cloudquery/cloudquery/commit/3ea3bd6886b8465e791cfecd1282d998ea0aeef0))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.13 ([#20912](https://github.com/cloudquery/cloudquery/issues/20912)) ([f9ff32f](https://github.com/cloudquery/cloudquery/commit/f9ff32fd09745385c63d65344c4d3b2d35d732be))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.14 ([#20929](https://github.com/cloudquery/cloudquery/issues/20929)) ([41fbbd0](https://github.com/cloudquery/cloudquery/commit/41fbbd0135018d3d85c2a88987583c96a3b298ff))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.15 ([#20943](https://github.com/cloudquery/cloudquery/issues/20943)) ([c8abdae](https://github.com/cloudquery/cloudquery/commit/c8abdae03fd1d8d20226d0bb3da9cc3fa06cce22))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.86.1 ([#20859](https://github.com/cloudquery/cloudquery/issues/20859)) ([8c49f52](https://github.com/cloudquery/cloudquery/commit/8c49f52a165b24cef7cea28851350d73851129b4))
+
+## [3.4.25](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.24...scaffold-v3.4.25) (2025-05-28)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.12 ([#20857](https://github.com/cloudquery/cloudquery/issues/20857)) ([0183d30](https://github.com/cloudquery/cloudquery/commit/0183d30c6cc5861bb179382efe302dd408a20d32))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.82.0 ([#20814](https://github.com/cloudquery/cloudquery/issues/20814)) ([6503ea9](https://github.com/cloudquery/cloudquery/commit/6503ea9d7945dd0bcfe5c8e4cbf407e40ea1e4de))
+
+## [3.4.24](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.23...scaffold-v3.4.24) (2025-05-21)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.2 ([#20778](https://github.com/cloudquery/cloudquery/issues/20778)) ([525352c](https://github.com/cloudquery/cloudquery/commit/525352c3d5ce3dd258358b7396b2cebd6ae3ce87))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.3 ([#20802](https://github.com/cloudquery/cloudquery/issues/20802)) ([2ba2f8e](https://github.com/cloudquery/cloudquery/commit/2ba2f8e59687b329d90bd07461e5ae967e0489f3))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.81.0 ([#20806](https://github.com/cloudquery/cloudquery/issues/20806)) ([567e252](https://github.com/cloudquery/cloudquery/commit/567e2524195d7f15e7d04f1fec2d8839c7735756))
+
+## [3.4.23](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.22...scaffold-v3.4.23) (2025-05-14)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.11 ([#20760](https://github.com/cloudquery/cloudquery/issues/20760)) ([cecaba0](https://github.com/cloudquery/cloudquery/commit/cecaba0df7d6b47c651f850dc36aae4a971d2851))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.0 ([#20729](https://github.com/cloudquery/cloudquery/issues/20729)) ([35e88d7](https://github.com/cloudquery/cloudquery/commit/35e88d7eab95f4f75c8f45092bfcec0e186f71e5))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.80.1 ([#20765](https://github.com/cloudquery/cloudquery/issues/20765)) ([a780ebf](https://github.com/cloudquery/cloudquery/commit/a780ebf3ab39afac488fdded773e0530c3e6f016))
+
+## [3.4.22](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.21...scaffold-v3.4.22) (2025-05-08)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.79.1 ([#20692](https://github.com/cloudquery/cloudquery/issues/20692)) ([50f909e](https://github.com/cloudquery/cloudquery/commit/50f909e8f847d436b973721cf7450e505af72c67))
+
+## [3.4.21](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.20...scaffold-v3.4.21) (2025-04-29)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.10 ([#20631](https://github.com/cloudquery/cloudquery/issues/20631)) ([cf44c01](https://github.com/cloudquery/cloudquery/commit/cf44c01b8f667a2882c63e091844bbfc58730fd7))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.79.0 ([#20636](https://github.com/cloudquery/cloudquery/issues/20636)) ([1ee4f97](https://github.com/cloudquery/cloudquery/commit/1ee4f9766600e018e9afcdeb4aa11a38fccf7c9d))
+
+## [3.4.20](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.19...scaffold-v3.4.20) (2025-04-28)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.78.0 ([#20597](https://github.com/cloudquery/cloudquery/issues/20597)) ([97111d7](https://github.com/cloudquery/cloudquery/commit/97111d7f32985b4ce64151a3282c9f8dfe558a3e))
+
+## [3.4.19](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.18...scaffold-v3.4.19) (2025-04-09)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.77.0 ([#20528](https://github.com/cloudquery/cloudquery/issues/20528)) ([c219c22](https://github.com/cloudquery/cloudquery/commit/c219c2222582bc4a2d048399e8ab8350b2f4e648))
+
+## [3.4.18](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.17...scaffold-v3.4.18) (2025-04-02)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.9 ([#20472](https://github.com/cloudquery/cloudquery/issues/20472)) ([bcb8012](https://github.com/cloudquery/cloudquery/commit/bcb8012ba132382dae1ef49e4d3e2452b08c9861))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.75.0 ([#20458](https://github.com/cloudquery/cloudquery/issues/20458)) ([346be39](https://github.com/cloudquery/cloudquery/commit/346be394ec9d39be2db65610791be4114bdc5307))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.76.0 ([#20499](https://github.com/cloudquery/cloudquery/issues/20499)) ([6c6c75a](https://github.com/cloudquery/cloudquery/commit/6c6c75aabf6c5585c71fcc649714f9f36fd2eefa))
+
+## [3.4.17](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.16...scaffold-v3.4.17) (2025-03-26)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.2.0 ([#20410](https://github.com/cloudquery/cloudquery/issues/20410)) ([ee081fb](https://github.com/cloudquery/cloudquery/commit/ee081fbb1ab7bd0c4c0955556dc6c76e17d4b9f3))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.74.2 ([#20434](https://github.com/cloudquery/cloudquery/issues/20434)) ([8db20d6](https://github.com/cloudquery/cloudquery/commit/8db20d6bc12153dc750857fe853ce2e3d95db65c))
+
+## [3.4.16](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.15...scaffold-v3.4.16) (2025-03-12)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.74.1 ([#20311](https://github.com/cloudquery/cloudquery/issues/20311)) ([10f803f](https://github.com/cloudquery/cloudquery/commit/10f803f0555bdc062ccd3c7f30ffeff0746f53ab))
+
+## [3.4.15](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.14...scaffold-v3.4.15) (2025-03-06)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.8 ([#20302](https://github.com/cloudquery/cloudquery/issues/20302)) ([1f83a61](https://github.com/cloudquery/cloudquery/commit/1f83a61f55ef93629d4f4b241e6d3df5fdf6de94))
+
+## [3.4.14](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.13...scaffold-v3.4.14) (2025-02-12)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.7 ([#20255](https://github.com/cloudquery/cloudquery/issues/20255)) ([55fbd29](https://github.com/cloudquery/cloudquery/commit/55fbd296aa1ce614b9ecc783e6e7cacacd1b359d))
+
+## [3.4.13](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.12...scaffold-v3.4.13) (2025-02-05)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.6 ([#20206](https://github.com/cloudquery/cloudquery/issues/20206)) ([d84c8b3](https://github.com/cloudquery/cloudquery/commit/d84c8b3dba11b4ebdde6a50816a324eb2ffe43b2))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.4 ([#20218](https://github.com/cloudquery/cloudquery/issues/20218)) ([9276249](https://github.com/cloudquery/cloudquery/commit/9276249f38c54565f25ef02f476b4cf4dc047482))
+
+## [3.4.12](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.11...scaffold-v3.4.12) (2025-01-21)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow-go/v18 to v18.1.0 ([#20149](https://github.com/cloudquery/cloudquery/issues/20149)) ([19efa2b](https://github.com/cloudquery/cloudquery/commit/19efa2bcada6024be3532e5f02333c9d8d3a1473))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.4 ([#20036](https://github.com/cloudquery/cloudquery/issues/20036)) ([4c594a0](https://github.com/cloudquery/cloudquery/commit/4c594a0d1212fa4c4a55a28bab74e151da0f8ea0))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.5 ([#20150](https://github.com/cloudquery/cloudquery/issues/20150)) ([a405208](https://github.com/cloudquery/cloudquery/commit/a405208aee6e35f1dc67563ca2c6ac6718270765))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.6 ([#20047](https://github.com/cloudquery/cloudquery/issues/20047)) ([e0ca8e0](https://github.com/cloudquery/cloudquery/commit/e0ca8e042f7531d305eb925de22bb972a8b136a8))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.0 ([#20127](https://github.com/cloudquery/cloudquery/issues/20127)) ([6638205](https://github.com/cloudquery/cloudquery/commit/6638205f26d27c64ffb9bd686937d677688dc26a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.2 ([#20142](https://github.com/cloudquery/cloudquery/issues/20142)) ([75964e3](https://github.com/cloudquery/cloudquery/commit/75964e335f6d293bd60b7ebdf83474373069f2f4))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.73.3 ([#20154](https://github.com/cloudquery/cloudquery/issues/20154)) ([847b6ce](https://github.com/cloudquery/cloudquery/commit/847b6ceefa2f60bad025c501823dbbd16330bfe7))
+* **deps:** Update module github.com/rs/zerolog to v1.33.0 ([#20096](https://github.com/cloudquery/cloudquery/issues/20096)) ([2ae5231](https://github.com/cloudquery/cloudquery/commit/2ae52316ab09d4b56dc88fe4775955c4997b736b))
+
+## [3.4.11](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.10...scaffold-v3.4.11) (2025-01-07)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.2 ([#20008](https://github.com/cloudquery/cloudquery/issues/20008)) ([44c32ff](https://github.com/cloudquery/cloudquery/commit/44c32ffe558f49cc01c3737b20557f60cc223065))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.3 ([#20017](https://github.com/cloudquery/cloudquery/issues/20017)) ([1f73c41](https://github.com/cloudquery/cloudquery/commit/1f73c41ef803768dd4e1cb8ad5bbf2367ec8f362))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.4 ([#20005](https://github.com/cloudquery/cloudquery/issues/20005)) ([ce42c41](https://github.com/cloudquery/cloudquery/commit/ce42c4137f9f028301f7880f0dac7e9eb0350c28))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.5 ([#20018](https://github.com/cloudquery/cloudquery/issues/20018)) ([f019725](https://github.com/cloudquery/cloudquery/commit/f01972543e11b1176b80cc9ae224adb759b59462))
+
+## [3.4.10](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.9...scaffold-v3.4.10) (2024-12-18)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.26.1 ([#19972](https://github.com/cloudquery/cloudquery/issues/19972)) ([c18eb97](https://github.com/cloudquery/cloudquery/commit/c18eb97c2fdc61aff1d688bdc69aeea38bcfe065))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.71.1 ([#19934](https://github.com/cloudquery/cloudquery/issues/19934)) ([0143675](https://github.com/cloudquery/cloudquery/commit/0143675576ac0fe3307669af904a3dc5ad9b00dc))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.72.0 ([#19968](https://github.com/cloudquery/cloudquery/issues/19968)) ([1d61768](https://github.com/cloudquery/cloudquery/commit/1d61768ec4de6904db0550486ae52dd788039521))
+
+## [3.4.9](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.8...scaffold-v3.4.9) (2024-12-11)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.70.2 ([#19873](https://github.com/cloudquery/cloudquery/issues/19873)) ([1c294aa](https://github.com/cloudquery/cloudquery/commit/1c294aa23b14da8cef9f78ee1a7365e50f304534))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.71.0 ([#19911](https://github.com/cloudquery/cloudquery/issues/19911)) ([2df1161](https://github.com/cloudquery/cloudquery/commit/2df11619759e8211780274ae870aadb1832411d3))
+
+## [3.4.8](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.7...scaffold-v3.4.8) (2024-12-04)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.25.6 ([#19845](https://github.com/cloudquery/cloudquery/issues/19845)) ([2f78b2b](https://github.com/cloudquery/cloudquery/commit/2f78b2b9d5c1b5438332443bbe6d4710c94f8a49))
+
+## [3.4.7](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.6...scaffold-v3.4.7) (2024-12-02)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.25.4 ([#19833](https://github.com/cloudquery/cloudquery/issues/19833)) ([9ce303e](https://github.com/cloudquery/cloudquery/commit/9ce303ed62e5f788646f5a0b5618f82407077cba))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.25.5 ([#19839](https://github.com/cloudquery/cloudquery/issues/19839)) ([53e2cd8](https://github.com/cloudquery/cloudquery/commit/53e2cd8c052a2d2d33157790214c4b38e77c553b))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.70.1 ([#19834](https://github.com/cloudquery/cloudquery/issues/19834)) ([687cefd](https://github.com/cloudquery/cloudquery/commit/687cefd19d03767cd1d949d5a28db36e618699a8))
+
+## [3.4.6](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.5...scaffold-v3.4.6) (2024-12-02)
+
+
+### Bug Fixes
+
+* Correct major version in `go.mod` ([#19809](https://github.com/cloudquery/cloudquery/issues/19809)) ([fc3606d](https://github.com/cloudquery/cloudquery/commit/fc3606d83a9c10153e211db8a47411e19ee66f54))
+
+## [3.4.5](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.4...scaffold-v3.4.5) (2024-11-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.68.3 ([#19604](https://github.com/cloudquery/cloudquery/issues/19604)) ([3d378ea](https://github.com/cloudquery/cloudquery/commit/3d378ea20dba9f2f66416545855b5bd15ee575cf))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.69.0 ([#19677](https://github.com/cloudquery/cloudquery/issues/19677)) ([84cd7bd](https://github.com/cloudquery/cloudquery/commit/84cd7bd0e40b310a4e1db19422c5f9c64ccd515a))
+
+## [3.4.4](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.3...scaffold-v3.4.4) (2024-11-13)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.25.2 ([#19558](https://github.com/cloudquery/cloudquery/issues/19558)) ([6b25195](https://github.com/cloudquery/cloudquery/commit/6b251954c1718b910617b27a09fd7bd30ea3bf5d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.68.0 ([#19515](https://github.com/cloudquery/cloudquery/issues/19515)) ([97c6d41](https://github.com/cloudquery/cloudquery/commit/97c6d41cc6962534c4c4cb1d3368dc38e6074383))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.68.2 ([#19565](https://github.com/cloudquery/cloudquery/issues/19565)) ([7e5fe64](https://github.com/cloudquery/cloudquery/commit/7e5fe6464d39173709107f512bab4da54a687d28))
+* Update scaffold for `spec.SetDefaults` and `spec.Validate()` ([#19584](https://github.com/cloudquery/cloudquery/issues/19584)) ([8c47f3f](https://github.com/cloudquery/cloudquery/commit/8c47f3f9b170a72e0a5605b1ce9e6b906a5ac774))
+
+## [3.4.3](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.2...scaffold-v3.4.3) (2024-10-30)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.24.0 ([#19414](https://github.com/cloudquery/cloudquery/issues/19414)) ([5b861f2](https://github.com/cloudquery/cloudquery/commit/5b861f2ad9d8297e8ced24aff99cf998452d822d))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.24.1 ([#19463](https://github.com/cloudquery/cloudquery/issues/19463)) ([0723f16](https://github.com/cloudquery/cloudquery/commit/0723f16f742b15d205de76ffb8502e4a0f181f15))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.25.0 ([#19494](https://github.com/cloudquery/cloudquery/issues/19494)) ([1d47795](https://github.com/cloudquery/cloudquery/commit/1d47795e6edbd9d8a0ddebd1e7afc159460bbc8d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.67.0 ([#19423](https://github.com/cloudquery/cloudquery/issues/19423)) ([50ebeb7](https://github.com/cloudquery/cloudquery/commit/50ebeb7b78779281a1e22c79d676e3a14a8f668a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.67.1 ([#19467](https://github.com/cloudquery/cloudquery/issues/19467)) ([7c20418](https://github.com/cloudquery/cloudquery/commit/7c20418bd8fbb5b9a74726c90251fcde9a53b94a))
+
+## [3.4.2](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.1...scaffold-v3.4.2) (2024-10-15)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.23.1 ([#19381](https://github.com/cloudquery/cloudquery/issues/19381)) ([ae74028](https://github.com/cloudquery/cloudquery/commit/ae7402870b26682c607235e52b968ef789947fc9))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.66.1 ([#19380](https://github.com/cloudquery/cloudquery/issues/19380)) ([0b37067](https://github.com/cloudquery/cloudquery/commit/0b3706722e10da4e5f065b86927c555df5fd350f))
+
+## [3.4.1](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.4.0...scaffold-v3.4.1) (2024-10-10)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.22.3 ([#19171](https://github.com/cloudquery/cloudquery/issues/19171)) ([c690a76](https://github.com/cloudquery/cloudquery/commit/c690a7683bb27a1f1d0fccd6b0111ee2b8796a7f))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.22.4 ([#19274](https://github.com/cloudquery/cloudquery/issues/19274)) ([c6eda0c](https://github.com/cloudquery/cloudquery/commit/c6eda0c48a5f9384a55c0a817d54093278930aa9))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.62.0 ([#19137](https://github.com/cloudquery/cloudquery/issues/19137)) ([ed315d0](https://github.com/cloudquery/cloudquery/commit/ed315d011d6a205e1a8ba851570f8e9533698c52))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.63.0 ([#19176](https://github.com/cloudquery/cloudquery/issues/19176)) ([00b2de0](https://github.com/cloudquery/cloudquery/commit/00b2de08ed424b7dbcc60a143a386c9c42133a70))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.64.0 ([#19287](https://github.com/cloudquery/cloudquery/issues/19287)) ([49941ee](https://github.com/cloudquery/cloudquery/commit/49941ee0c985fe6cb88581818064c8152a388304))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.65.0 ([#19322](https://github.com/cloudquery/cloudquery/issues/19322)) ([87a68ea](https://github.com/cloudquery/cloudquery/commit/87a68ea489068a621948112137f987252b83273c))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.66.0 ([#19332](https://github.com/cloudquery/cloudquery/issues/19332)) ([137a232](https://github.com/cloudquery/cloudquery/commit/137a2328637ef226e5dba446b92c2d670f798540))
+
+## [3.4.0](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.3.3...scaffold-v3.4.0) (2024-09-04)
+
+
+### Features
+
+* Separate scaffold's source templates to module. ([#19084](https://github.com/cloudquery/cloudquery/issues/19084)) ([648ea59](https://github.com/cloudquery/cloudquery/commit/648ea597a84a414b68e89edaf8c42746336d8de1))
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.22.2 ([#19085](https://github.com/cloudquery/cloudquery/issues/19085)) ([ac9fedd](https://github.com/cloudquery/cloudquery/commit/ac9fedda5a0dbd1ee9a7e40fd6bb942b5711709a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.61.0 ([#19069](https://github.com/cloudquery/cloudquery/issues/19069)) ([bf8ab33](https://github.com/cloudquery/cloudquery/commit/bf8ab3356a44e3fee8e03f68fbc3994471cdb6fa))
+
+## [3.3.3](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.3.2...scaffold-v3.3.3) (2024-08-27)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.22.1 ([#19010](https://github.com/cloudquery/cloudquery/issues/19010)) ([2e47604](https://github.com/cloudquery/cloudquery/commit/2e4760405773e97dfbaebee6b3f207baa12b0066))
+
+## [3.3.2](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.3.1...scaffold-v3.3.2) (2024-08-20)
+
+
+### Bug Fixes
+
+* UI Scaffold table generation ([#18969](https://github.com/cloudquery/cloudquery/issues/18969)) ([08468c4](https://github.com/cloudquery/cloudquery/commit/08468c497eaf57b74ff13275a8743b9fcb5048c1))
+
+## [3.3.1](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.3.0...scaffold-v3.3.1) (2024-08-20)
+
+
+### Bug Fixes
+
+* Update UI Scaffold ([#18963](https://github.com/cloudquery/cloudquery/issues/18963)) ([d7cdf3b](https://github.com/cloudquery/cloudquery/commit/d7cdf3b53275832bb2bfdd6e338adb1b8caaa594))
+
+## [3.3.0](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.2.0...scaffold-v3.3.0) (2024-08-13)
+
+
+### Features
+
+* Enhance scaffold cloud UI ([#18909](https://github.com/cloudquery/cloudquery/issues/18909)) ([845b8ae](https://github.com/cloudquery/cloudquery/commit/845b8aeb0e14503467b398a7a98efc46b380a79e))
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.21.3 ([#18750](https://github.com/cloudquery/cloudquery/issues/18750)) ([abc54d1](https://github.com/cloudquery/cloudquery/commit/abc54d15a9ede4e88aad3eddfc8fe2b3e11d6e23))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.21.4 ([#18809](https://github.com/cloudquery/cloudquery/issues/18809)) ([4f82b9c](https://github.com/cloudquery/cloudquery/commit/4f82b9caec1ef3e79bb93c76c2cdf67203b47d9b))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.21.5 ([#18835](https://github.com/cloudquery/cloudquery/issues/18835)) ([72f2327](https://github.com/cloudquery/cloudquery/commit/72f232734c017980501195aec994188cb5ad3fc5))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.22.0 ([#18905](https://github.com/cloudquery/cloudquery/issues/18905)) ([ca25539](https://github.com/cloudquery/cloudquery/commit/ca25539efd906fb7de6d5734f35e31b91411c7fa))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.56.0 ([#18763](https://github.com/cloudquery/cloudquery/issues/18763)) ([45da614](https://github.com/cloudquery/cloudquery/commit/45da614ef7aaaf83e7820beec5ee33b00e9f5c0f))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.57.0 ([#18810](https://github.com/cloudquery/cloudquery/issues/18810)) ([42cc5de](https://github.com/cloudquery/cloudquery/commit/42cc5de457e5734c66d3c0f08ef61b35b2b60ca9))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.57.1 ([#18830](https://github.com/cloudquery/cloudquery/issues/18830)) ([605c202](https://github.com/cloudquery/cloudquery/commit/605c2027954f06f8314bad4ebb4f8fb378e7ce93))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.58.0 ([#18839](https://github.com/cloudquery/cloudquery/issues/18839)) ([6b57bca](https://github.com/cloudquery/cloudquery/commit/6b57bca07781db60497006b870d241609ebc8aab))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.58.1 ([#18852](https://github.com/cloudquery/cloudquery/issues/18852)) ([4320340](https://github.com/cloudquery/cloudquery/commit/4320340ac9a0db098696f567956e8b0c721f714c))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.59.0 ([#18881](https://github.com/cloudquery/cloudquery/issues/18881)) ([8f7667f](https://github.com/cloudquery/cloudquery/commit/8f7667f78c89514203806a458dafcbf3f389e45b))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.60.0 ([#18922](https://github.com/cloudquery/cloudquery/issues/18922)) ([7626636](https://github.com/cloudquery/cloudquery/commit/7626636913f7a0b26fb4abd25202697ace7b7132))
+* **main:** Plugin UI data generation dx and ci fixes ([#18915](https://github.com/cloudquery/cloudquery/issues/18915)) ([0cc7050](https://github.com/cloudquery/cloudquery/commit/0cc7050eca720c452124b3c1828225cc36ac2897))
+
+## [3.2.0](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.1.3...scaffold-v3.2.0) (2024-07-30)
+
+
+### Features
+
+* PostgreSQL destination plugin cloud config UI ([#18714](https://github.com/cloudquery/cloudquery/issues/18714)) ([f347db6](https://github.com/cloudquery/cloudquery/commit/f347db6db8b61d38541cc268bd520bb18cc82c51))
+
+
+### Bug Fixes
+
+* Allow go template expansion in UI files. ([#18672](https://github.com/cloudquery/cloudquery/issues/18672)) ([4cad1af](https://github.com/cloudquery/cloudquery/commit/4cad1af8634513eac7d10d46207148c3002ba4e3))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.21.0 ([#18712](https://github.com/cloudquery/cloudquery/issues/18712)) ([a84b4dc](https://github.com/cloudquery/cloudquery/commit/a84b4dcee8b37db1fcb4f77d2091d78b106cb259))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.21.1 ([#18715](https://github.com/cloudquery/cloudquery/issues/18715)) ([262e36d](https://github.com/cloudquery/cloudquery/commit/262e36dca0a50b26666e6d7986ca136673dd9b47))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.21.2 ([#18745](https://github.com/cloudquery/cloudquery/issues/18745)) ([bfa032d](https://github.com/cloudquery/cloudquery/commit/bfa032d5a5c7fa8b397af8150e6a9c5630a35f18))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.52.1 ([#18674](https://github.com/cloudquery/cloudquery/issues/18674)) ([01f8463](https://github.com/cloudquery/cloudquery/commit/01f84633e82f1921a2a5a805d1aa1d5a5a6abac6))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.53.0 ([#18703](https://github.com/cloudquery/cloudquery/issues/18703)) ([2fbc27d](https://github.com/cloudquery/cloudquery/commit/2fbc27d8c1aa066d24611c74099c3e437b821617))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.53.1 ([#18705](https://github.com/cloudquery/cloudquery/issues/18705)) ([5432049](https://github.com/cloudquery/cloudquery/commit/5432049699370d058b7a28b9be546a4871537756))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.54.0 ([#18717](https://github.com/cloudquery/cloudquery/issues/18717)) ([c8ccd1f](https://github.com/cloudquery/cloudquery/commit/c8ccd1ff6c40ef7385a72669769531c72d9c7128))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.55.0 ([#18742](https://github.com/cloudquery/cloudquery/issues/18742)) ([4045944](https://github.com/cloudquery/cloudquery/commit/4045944b8e9f4414145e6484a62692852ba9b174))
+
+## [3.1.3](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.1.2...scaffold-v3.1.3) (2024-07-23)
+
+
+### Bug Fixes
+
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.14 ([#18603](https://github.com/cloudquery/cloudquery/issues/18603)) ([68ae7d8](https://github.com/cloudquery/cloudquery/commit/68ae7d883f4ed9d6bd7ed7acc5eadb2bd461a58b))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.15 ([#18605](https://github.com/cloudquery/cloudquery/issues/18605)) ([7b3b35f](https://github.com/cloudquery/cloudquery/commit/7b3b35f591b8158537dcd49ed64c5f7576df5d4c))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.16 ([#18606](https://github.com/cloudquery/cloudquery/issues/18606)) ([3f34da6](https://github.com/cloudquery/cloudquery/commit/3f34da6221f52f1d30a6743d15b32186c763ca24))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.18 ([#18607](https://github.com/cloudquery/cloudquery/issues/18607)) ([8b8a902](https://github.com/cloudquery/cloudquery/commit/8b8a902b9647aa6ad13db151bafed0e288efb560))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.20 ([#18610](https://github.com/cloudquery/cloudquery/issues/18610)) ([4990507](https://github.com/cloudquery/cloudquery/commit/49905077545ad503a661e032ed1dbbac5537c6fa))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.21 ([#18611](https://github.com/cloudquery/cloudquery/issues/18611)) ([9820af6](https://github.com/cloudquery/cloudquery/commit/9820af61d19c7b9a6a0fed1f9f584837ccd2565d))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.22 ([#18612](https://github.com/cloudquery/cloudquery/issues/18612)) ([d0cbd51](https://github.com/cloudquery/cloudquery/commit/d0cbd517213f157b8b12802605e8c88c27229618))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.24 ([#18615](https://github.com/cloudquery/cloudquery/issues/18615)) ([796630b](https://github.com/cloudquery/cloudquery/commit/796630bc9ebc6ba54a080c50cfd09a8cc5fbe9d5))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.25 ([#18644](https://github.com/cloudquery/cloudquery/issues/18644)) ([4bd863d](https://github.com/cloudquery/cloudquery/commit/4bd863d59730dffc9fb96018e18713a41050a6aa))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.27 ([#18647](https://github.com/cloudquery/cloudquery/issues/18647)) ([ab9b797](https://github.com/cloudquery/cloudquery/commit/ab9b7971668f50f9e4a41176363e6f9b9638255f))
+* **deps:** Update module github.com/apache/arrow/go/v16 to v17 ([#18657](https://github.com/cloudquery/cloudquery/issues/18657)) ([3ae9b11](https://github.com/cloudquery/cloudquery/commit/3ae9b1148b93939e436a81f4bca2a446945886d6))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.20.7 ([#18645](https://github.com/cloudquery/cloudquery/issues/18645)) ([91172f4](https://github.com/cloudquery/cloudquery/commit/91172f41222c8affca89a5c596a1576bbfdf2593))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.4 ([#18616](https://github.com/cloudquery/cloudquery/issues/18616)) ([b818bfb](https://github.com/cloudquery/cloudquery/commit/b818bfbcc5c47839e4d00f28615ed7c7016a32df))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.50.0 ([#18642](https://github.com/cloudquery/cloudquery/issues/18642)) ([703b60c](https://github.com/cloudquery/cloudquery/commit/703b60c58851a6c57f23f1e41a188b83e7e384ae))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.51.0 ([#18664](https://github.com/cloudquery/cloudquery/issues/18664)) ([c98a04d](https://github.com/cloudquery/cloudquery/commit/c98a04d96e2b7a478da0c335143745d9387a8830))
+* Update plugin custom UI scaffold  ([#18646](https://github.com/cloudquery/cloudquery/issues/18646)) ([9a410f4](https://github.com/cloudquery/cloudquery/commit/9a410f457649012d2b0e6d7e31b54bb1c21cd162))
+
+## [3.1.2](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.1.1...scaffold-v3.1.2) (2024-07-18)
+
+
+### Bug Fixes
+
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.11 ([#18594](https://github.com/cloudquery/cloudquery/issues/18594)) ([83e21e4](https://github.com/cloudquery/cloudquery/commit/83e21e4b30dd9887954807b78d7de984f4326996))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.12 ([#18596](https://github.com/cloudquery/cloudquery/issues/18596)) ([df5a336](https://github.com/cloudquery/cloudquery/commit/df5a336c249beeaaa89fe6275597538243d7e7ca))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.13 ([#18598](https://github.com/cloudquery/cloudquery/issues/18598)) ([4e07ad7](https://github.com/cloudquery/cloudquery/commit/4e07ad7d4013082953c5e0592483f5174ff78854))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.20.5 ([#18590](https://github.com/cloudquery/cloudquery/issues/18590)) ([5bfa3ca](https://github.com/cloudquery/cloudquery/commit/5bfa3ca8bbdcf9493777bc607b05473dc808cfc7))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.20.6 ([#18593](https://github.com/cloudquery/cloudquery/issues/18593)) ([64cbb9a](https://github.com/cloudquery/cloudquery/commit/64cbb9a6415ef689f211549c0fef570d89185132))
+
+## [3.1.1](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.1.0...scaffold-v3.1.1) (2024-07-17)
+
+
+### Bug Fixes
+
+* **deps:** Update dependency @cloudquery/plugin-config-ui-connector to ^0.2.0 ([#18574](https://github.com/cloudquery/cloudquery/issues/18574)) ([b8c1408](https://github.com/cloudquery/cloudquery/commit/b8c140846e34ce950764d6d0c617427b4581a24d))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.4 ([#18555](https://github.com/cloudquery/cloudquery/issues/18555)) ([9c0191b](https://github.com/cloudquery/cloudquery/commit/9c0191b0d8d7995cf850d2812e6c2baea77a937c))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.5 ([#18567](https://github.com/cloudquery/cloudquery/issues/18567)) ([bc382d7](https://github.com/cloudquery/cloudquery/commit/bc382d7a27da9b4cc656243fe6556b085069e309))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.7 ([#18570](https://github.com/cloudquery/cloudquery/issues/18570)) ([d84ff34](https://github.com/cloudquery/cloudquery/commit/d84ff3499707c024e78e8cdf98c6519129a92a96))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.8 ([#18577](https://github.com/cloudquery/cloudquery/issues/18577)) ([e756bf4](https://github.com/cloudquery/cloudquery/commit/e756bf4880dbbd5b0913dcc151bec0d52bdfde44))
+* **deps:** Update dependency @cloudquery/plugin-config-ui-lib to ^0.0.9 ([#18578](https://github.com/cloudquery/cloudquery/issues/18578)) ([46174e5](https://github.com/cloudquery/cloudquery/commit/46174e5d85dc397c44c39ee324767136eab6ec24))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.2 ([#18504](https://github.com/cloudquery/cloudquery/issues/18504)) ([2d80936](https://github.com/cloudquery/cloudquery/commit/2d80936e5f952b29f1ddf6267c2331a504a38b2d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.3 ([#18513](https://github.com/cloudquery/cloudquery/issues/18513)) ([d12da90](https://github.com/cloudquery/cloudquery/commit/d12da90f5ca67b8e590c433ad2762d48c499e6aa))
+
+## [3.1.0](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.20...scaffold-v3.1.0) (2024-07-09)
+
+
+### Features
+
+* Add output to scaffold source command ([#18481](https://github.com/cloudquery/cloudquery/issues/18481)) ([3e61fb0](https://github.com/cloudquery/cloudquery/commit/3e61fb0b6f9c3b84ba9763c40384c8f787a4efdc))
+
+
+### Bug Fixes
+
+* Align wording and description with current licensing ([#18371](https://github.com/cloudquery/cloudquery/issues/18371)) ([ba91d48](https://github.com/cloudquery/cloudquery/commit/ba91d4823e4a805620650ff0a82ba44387b7d979))
+* **deps:** Update module github.com/cloudquery/cloudquery-api-go to v1.12.0 ([#18448](https://github.com/cloudquery/cloudquery/issues/18448)) ([a5850e1](https://github.com/cloudquery/cloudquery/commit/a5850e1190e7d40437b3fbcea5c3b8f6b4b059ac))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.20.3 ([#18495](https://github.com/cloudquery/cloudquery/issues/18495)) ([86fac37](https://github.com/cloudquery/cloudquery/commit/86fac370045021e57d9f47f4e7fb06465d6ee0bd))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.0 ([#18415](https://github.com/cloudquery/cloudquery/issues/18415)) ([3f4ef53](https://github.com/cloudquery/cloudquery/commit/3f4ef5366078eebd38ab7c1cc52afc0eaeee08f4))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.49.1 ([#18497](https://github.com/cloudquery/cloudquery/issues/18497)) ([3416eb7](https://github.com/cloudquery/cloudquery/commit/3416eb7d870fb8e9a0132bda3a571a235817a3f6))
+
+## [3.0.20](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.19...scaffold-v3.0.20) (2024-06-25)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.20.2 ([#18333](https://github.com/cloudquery/cloudquery/issues/18333)) ([add2213](https://github.com/cloudquery/cloudquery/commit/add221333b03e7910683a19ca0b6ef17993907c1))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.4 ([#18299](https://github.com/cloudquery/cloudquery/issues/18299)) ([200480a](https://github.com/cloudquery/cloudquery/commit/200480a04ecaa8a826df2aa86429d1e1c9416f73))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.5 ([#18327](https://github.com/cloudquery/cloudquery/issues/18327)) ([42d5850](https://github.com/cloudquery/cloudquery/commit/42d5850e4d11e49d8567c2b182a3b26409cad150))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.6 ([#18340](https://github.com/cloudquery/cloudquery/issues/18340)) ([f284668](https://github.com/cloudquery/cloudquery/commit/f284668c7912ce7191cc5d70f11135874f7d98c9))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.46.0 ([#18341](https://github.com/cloudquery/cloudquery/issues/18341)) ([5db9574](https://github.com/cloudquery/cloudquery/commit/5db9574defbd47b798254dacb1f4e466ccfacf74))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.46.1 ([#18350](https://github.com/cloudquery/cloudquery/issues/18350)) ([8ff8909](https://github.com/cloudquery/cloudquery/commit/8ff89094c231abfbc1cec38f8901a546139f2d01))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.47.0 ([#18351](https://github.com/cloudquery/cloudquery/issues/18351)) ([9c5bbdc](https://github.com/cloudquery/cloudquery/commit/9c5bbdccebdc2c65df491f70f76483aa0bb1c533))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.47.1 ([#18352](https://github.com/cloudquery/cloudquery/issues/18352)) ([b31812a](https://github.com/cloudquery/cloudquery/commit/b31812a821233cffa2b9bbc6a7644797f380fa82))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.48.0 ([#18363](https://github.com/cloudquery/cloudquery/issues/18363)) ([61baf97](https://github.com/cloudquery/cloudquery/commit/61baf97d1704878dcb129be56bd6457109b1719a))
+
+## [3.0.19](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.18...scaffold-v3.0.19) (2024-06-18)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.20.0 ([#18247](https://github.com/cloudquery/cloudquery/issues/18247)) ([54a3569](https://github.com/cloudquery/cloudquery/commit/54a3569cc242398bdefbfcd28021b9e084b61f74))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.20.1 ([#18280](https://github.com/cloudquery/cloudquery/issues/18280)) ([b4d36e0](https://github.com/cloudquery/cloudquery/commit/b4d36e0cd3249bdf85b0eae5542bbe43074ab56a))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.0 ([#18246](https://github.com/cloudquery/cloudquery/issues/18246)) ([b462a91](https://github.com/cloudquery/cloudquery/commit/b462a91c6c260661171b5afc2a0e063202fcde1d))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.1 ([#18273](https://github.com/cloudquery/cloudquery/issues/18273)) ([c54ebbf](https://github.com/cloudquery/cloudquery/commit/c54ebbfadcaac9f5f9085681dd5e4065b494dc74))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.45.2 ([#18289](https://github.com/cloudquery/cloudquery/issues/18289)) ([c5b1b3e](https://github.com/cloudquery/cloudquery/commit/c5b1b3ec80d7d3cf7d32514a72942d50b2fbf546))
+
+## [3.0.18](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.17...scaffold-v3.0.18) (2024-06-11)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.19 ([#18187](https://github.com/cloudquery/cloudquery/issues/18187)) ([4e0322f](https://github.com/cloudquery/cloudquery/commit/4e0322fdec6cbd2d984497342cef09549b3e664d))
+
+## [3.0.17](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.16...scaffold-v3.0.17) (2024-06-03)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.16 ([#18041](https://github.com/cloudquery/cloudquery/issues/18041)) ([9d62b39](https://github.com/cloudquery/cloudquery/commit/9d62b39f2ceaef4c61920f221f9bba1f3a1bf808))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.17 ([#18052](https://github.com/cloudquery/cloudquery/issues/18052)) ([1cf41f1](https://github.com/cloudquery/cloudquery/commit/1cf41f1f45e887aa79e767bdfacaee9cb937a647))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.18 ([#18096](https://github.com/cloudquery/cloudquery/issues/18096)) ([3a37192](https://github.com/cloudquery/cloudquery/commit/3a37192a7d0764c6f6d7331365d36d1597d1e417))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.44.1 ([#18076](https://github.com/cloudquery/cloudquery/issues/18076)) ([7cd7012](https://github.com/cloudquery/cloudquery/commit/7cd70128389844d0221f7dce7102375f8931ef77))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.44.2 ([#18113](https://github.com/cloudquery/cloudquery/issues/18113)) ([508347b](https://github.com/cloudquery/cloudquery/commit/508347b8d2168564f69ccb33171f290267647c12))
+
+## [3.0.16](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.15...scaffold-v3.0.16) (2024-05-21)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/apache/arrow/go/v16 to v16.1.0 ([#18013](https://github.com/cloudquery/cloudquery/issues/18013)) ([2953d7f](https://github.com/cloudquery/cloudquery/commit/2953d7f396e80cf8dfa4d196ff12d807e6c79f90))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.13 ([#18001](https://github.com/cloudquery/cloudquery/issues/18001)) ([042f3b8](https://github.com/cloudquery/cloudquery/commit/042f3b865407a0a5a7d079c758de360bb6fa62b1))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.14 ([#18018](https://github.com/cloudquery/cloudquery/issues/18018)) ([ff3d6b6](https://github.com/cloudquery/cloudquery/commit/ff3d6b62707ed0979d1e930fcc3f0866643de3f5))
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.15 ([#18025](https://github.com/cloudquery/cloudquery/issues/18025)) ([5d4e484](https://github.com/cloudquery/cloudquery/commit/5d4e484c91b8ab7da810884d398f7604c86a0265))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.42.1 ([#17965](https://github.com/cloudquery/cloudquery/issues/17965)) ([d652b81](https://github.com/cloudquery/cloudquery/commit/d652b81e18a35d122280ee1e59c601d7b1a0e607))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.42.2 ([#18000](https://github.com/cloudquery/cloudquery/issues/18000)) ([5fc0f46](https://github.com/cloudquery/cloudquery/commit/5fc0f46ce912a6b5c1d232b405ca6f2a30584461))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.43.0 ([#18014](https://github.com/cloudquery/cloudquery/issues/18014)) ([20592c8](https://github.com/cloudquery/cloudquery/commit/20592c8ba2a2da05a6dac60701e821fc0623bf60))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.43.1 ([#18026](https://github.com/cloudquery/cloudquery/issues/18026)) ([364307c](https://github.com/cloudquery/cloudquery/commit/364307c5a7e954cc3521498678e3aa658eb4937a))
+
+## [3.0.15](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.14...scaffold-v3.0.15) (2024-05-14)
+
+
+### Bug Fixes
+
+* **deps:** Update module github.com/cloudquery/plugin-pb-go to v1.19.12 ([#17901](https://github.com/cloudquery/cloudquery/issues/17901)) ([a4bdd27](https://github.com/cloudquery/cloudquery/commit/a4bdd275b4199d16ad2f92f4570f607c1467b900))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.41.0 ([#17917](https://github.com/cloudquery/cloudquery/issues/17917)) ([81f2506](https://github.com/cloudquery/cloudquery/commit/81f25061a461a025595aa0b4ed4bf992f53e67be))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.41.1 ([#17941](https://github.com/cloudquery/cloudquery/issues/17941)) ([b112a67](https://github.com/cloudquery/cloudquery/commit/b112a6798245d12ef82da532504a500c610cac10))
+* **deps:** Update module github.com/cloudquery/plugin-sdk/v4 to v4.42.0 ([#17951](https://github.com/cloudquery/cloudquery/issues/17951)) ([f5befb1](https://github.com/cloudquery/cloudquery/commit/f5befb1fba1089d78c594c39064466795c53a86e))
+
 ## [3.0.14](https://github.com/cloudquery/cloudquery/compare/scaffold-v3.0.13...scaffold-v3.0.14) (2024-05-07)
 
 

@@ -75,13 +75,38 @@ This is the (nested) spec used by the CSV destination Plugin.
 
 ### format_spec
 
+#### CSV
+
 - `delimiter` (`string`) (optional) (default: `,`)
 
-  Character that will be used as want to use as the delimiter if the format type is `csv`.
+  Delimiter to use in the CSV file.
 
 - `skip_header` (`boolean`) (optional) (default: `false`)
 
-  Specifies if the first line of a file should be the headers (when format is `csv`).
+  If set to `true`, the CSV file will not contain a header row as the first row.
+
+#### JSON
+
+Reserved for future use.
+
+#### Parquet
+
+- `version` (`string`) (optional) (default: `v2Latest`)
+
+  Parquet format version to use. Supported values are `v1.0`, `v2.4`, `v2.6` and `v2Latest`.
+  `v2Latest` is an alias for the latest version available in the Parquet library which is currently `v2.6`.
+
+  Useful when the reader consuming the Parquet files does not support the latest version.
+
+- `root_repetition` (`string`) (optional) (default: `repeated`)
+
+  Repetition option for the root node. Supported values are `undefined`, `required`, `optional` and `repeated`.
+
+  This option is kept for compatibility. Since [arrow-go v18.6.0](https://github.com/apache/arrow-go/pull/723), the Parquet writer does not write the root repetition. The value has no effect on the file.
+
+- `max_row_group_length` (`integer`) (optional) (default: `1048576` (= `1024 * 1024`))
+
+  The maximum number of rows in a single row group. This value is a row count, not a size in bytes. Use a lower number to reduce memory usage when reading the Parquet files, and a higher number to increase the efficiency of reading the Parquet files.
 
 ## Authentication
 

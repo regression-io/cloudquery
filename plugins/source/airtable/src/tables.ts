@@ -14,19 +14,17 @@ import localizedFormat from 'dayjs/plugin/localizedFormat.js';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
 import { getProperty } from 'dot-prop';
-import { got } from 'got';
+import got from 'got';
 import pMap from 'p-map';
 import type { Logger } from 'winston';
 
 import type { APIField, APITable, APIBase, APIFieldFormula } from './airtable.js';
 import { APIFieldType } from './airtable.js';
 
-/* eslint-disable import/no-named-as-default-member */
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(customParseFormat);
 dayjs.extend(localizedFormat);
-/* eslint-enable import/no-named-as-default-member */
 
 const timeout = {
   request: 10_000,
@@ -86,20 +84,14 @@ const airtableFieldToArrowField = (field: APIField): DataType => {
       return new Uint64();
     }
     case APIFieldType.number: {
-      if (field.options.precision === 0) {
-        return new Int64();
-      }
-      return new Float64();
+      return field.options.precision === 0 ? new Int64() : new Float64();
     }
     case APIFieldType.percent: {
       return new Float64();
     }
     case APIFieldType.formula: {
       const formulaField = field as APIFieldFormula;
-      if (formulaField.options.result !== null) {
-        return airtableFieldToArrowField(formulaField.options.result);
-      }
-      return new Utf8();
+      return formulaField.options.result === null ? new Utf8() : airtableFieldToArrowField(formulaField.options.result);
     }
     default: {
       return new Utf8();
@@ -108,19 +100,11 @@ const airtableFieldToArrowField = (field: APIField): DataType => {
 };
 
 const normalizeDateFormat = (format: string) => {
-  if (format === 'l' || format === 'LL') {
-    return 'YYYY-MM-DD';
-  }
-  return format;
+  return format === 'l' || format === 'LL' ? 'YYYY-MM-DD' : format;
 };
 
-const normalizeTimeZone = (timeZone: string) => {
-  if (timeZone === 'client') {
-    // 'client' means Airtable uses the local timezone of the user to display the date, and stores it in UTC
-    return 'utc';
-  }
-  return timeZone;
-};
+// 'client' means Airtable uses the local timezone of the user to display the date, and stores it in UTC
+const normalizeTimeZone = (timeZone: string) => (timeZone === 'client' ? 'utc' : timeZone);
 
 const getColumnResolver = (field: APIField): ColumnResolver => {
   switch (field.type) {
@@ -134,14 +118,14 @@ const getColumnResolver = (field: APIField): ColumnResolver => {
 
         const dateFormat = normalizeDateFormat(field.options.result.options.dateFormat.format);
         if (field.options.result.type === 'date') {
-          const formatted = dayjs(data, dateFormat).toDate();
+          const formatted = dayjs(data as string, dateFormat).toDate();
           return Promise.resolve(resource.setColumData(column.name, formatted));
         }
 
         const timeFormat = field.options.result.options.timeFormat.format;
         const format = `${dateFormat} ${timeFormat}`;
         const timezone = normalizeTimeZone(field.options.result.options.timeZone);
-        const formatted = dayjs.tz(data, format, timezone).toDate();
+        const formatted = dayjs.tz(data as string, format, timezone).toDate();
         return Promise.resolve(resource.setColumData(column.name, formatted));
       };
       return resolver;
@@ -154,7 +138,7 @@ const getColumnResolver = (field: APIField): ColumnResolver => {
         }
 
         const dateFormat = normalizeDateFormat(field.options.dateFormat.format);
-        const formatted = dayjs(data, dateFormat).toDate();
+        const formatted = dayjs(data as string, dateFormat).toDate();
         return Promise.resolve(resource.setColumData(column.name, formatted));
       };
       return resolver;
@@ -170,7 +154,7 @@ const getColumnResolver = (field: APIField): ColumnResolver => {
         const timeFormat = field.options.timeFormat.format;
         const format = `${dateFormat} ${timeFormat}`;
         const timeZone = normalizeTimeZone(field.options.timeZone);
-        const formatted = dayjs.tz(data, format, timeZone).toDate();
+        const formatted = dayjs.tz(data as string, format, timeZone).toDate();
         return Promise.resolve(resource.setColumData(column.name, formatted));
       };
       return resolver;
@@ -207,10 +191,9 @@ const getColumnResolver = (field: APIField): ColumnResolver => {
     }
     case APIFieldType.formula: {
       const formulaField = field as APIFieldFormula;
-      if (formulaField.options.result !== null) {
-        return getColumnResolver({ ...field, ...formulaField.options.result });
-      }
-      return pathResolver(field.name);
+      return formulaField.options.result === null
+        ? pathResolver(field.name)
+        : getColumnResolver({ ...field, ...formulaField.options.result });
     }
     default: {
       return pathResolver(field.name);
@@ -242,12 +225,29 @@ const airtableToSchemaTable = (
 
   const resolver: TableResolver = async (clientMeta, parent, stream) => {
     const airtableClient = new Airtable({ apiKey, endpointUrl }).base(baseId);
-    const records = await airtableClient(table.name).select().all();
-    for (const record of records) {
-      const recordAsObject = Object.fromEntries(table.fields.map((field) => [field.name, record.get(field.name)]));
-      stream.write(recordAsObject);
-    }
-    return;
+
+    return new Promise((resolve, reject) => {
+      airtableClient(table.name)
+        .select()
+        .eachPage(
+          (records, fetchNextPage) => {
+            for (const record of records) {
+              const recordAsObject = Object.fromEntries(
+                table.fields.map((field) => [field.name, record.get(field.name)]),
+              );
+              stream.write(recordAsObject);
+            }
+            fetchNextPage();
+          },
+          (error) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve();
+            }
+          },
+        );
+    });
   };
 
   return createTable({ name, columns, description: table.description, resolver });

@@ -1,12 +1,13 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 
 	"cloud.google.com/go/storage"
-	"github.com/cloudquery/cloudquery/plugins/destination/gcs/client/spec"
+	"github.com/cloudquery/cloudquery/plugins/destination/gcs/v5/client/spec"
 	"github.com/cloudquery/filetypes/v4"
 	"github.com/cloudquery/plugin-sdk/v4/writers/streamingbatchwriter"
 	"google.golang.org/api/option"
@@ -38,6 +39,9 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, newClientOpts plu
 		logger: logger.With().Str("module", "gcs").Logger(),
 		syncID: newClientOpts.InvocationID,
 	}
+	if newClientOpts.NoConnection && isEmptySpec(s) {
+		return c, nil
+	}
 
 	if err := json.Unmarshal(s, &c.spec); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal gcs spec: %w", err)
@@ -53,9 +57,13 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, newClientOpts plu
 	}
 	c.Client = filetypesClient
 
+	if newClientOpts.NoConnection {
+		return c, nil
+	}
+
 	opts := []option.ClientOption{}
 	if len(c.spec.ServiceAccountKeyJSON) != 0 {
-		opts = append(opts, option.WithCredentialsJSON([]byte(c.spec.ServiceAccountKeyJSON)))
+		opts = append(opts, option.WithAuthCredentialsJSON(option.ServiceAccount, []byte(c.spec.ServiceAccountKeyJSON)))
 	}
 	c.gcsClient, err = storage.NewClient(ctx, opts...)
 	if err != nil {
@@ -84,6 +92,14 @@ func New(ctx context.Context, logger zerolog.Logger, s []byte, newClientOpts plu
 	return c, nil
 }
 
+func isEmptySpec(s []byte) bool {
+	trimmed := bytes.TrimSpace(s)
+	return len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null"))
+}
+
 func (c *Client) Close(ctx context.Context) error {
+	if c.writer == nil {
+		return nil
+	}
 	return c.writer.Close(ctx)
 }

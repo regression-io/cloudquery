@@ -2,20 +2,26 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/firehose"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/cloudquery/cloudquery/plugins/destination/firehose/client/spec"
+	"github.com/cloudquery/cloudquery/plugins/destination/firehose/v2/client/spec"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/goccy/go-json"
 
 	"github.com/rs/zerolog"
+)
+
+var (
+	errInvalidSpec  = errors.New("invalid spec")
+	errUnauthorized = errors.New("unauthorized")
 )
 
 type Client struct {
@@ -28,29 +34,34 @@ type Client struct {
 
 var _ plugin.Client = (*Client)(nil)
 
-func New(ctx context.Context, logger zerolog.Logger, specBytes []byte, _ plugin.NewClientOptions) (plugin.Client, error) {
+func New(ctx context.Context, logger zerolog.Logger, specBytes []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
+	logger = logger.With().Str("module", "firehose").Logger()
+	if opts.NoConnection {
+		return &Client{logger: logger}, nil
+	}
+
 	var s spec.Spec
 	if err := json.Unmarshal(specBytes, &s); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal spec: %w", err)
+		return nil, errors.Join(errInvalidSpec, fmt.Errorf("failed to unmarshal spec: %w", err))
 	}
 	s.SetDefaults()
 	if err := s.Validate(); err != nil {
-		return nil, err
+		return nil, errors.Join(errInvalidSpec, err)
 	}
 
 	parsedARN, err := arn.Parse(s.StreamARN)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse firehose stream ARN: %w", err)
+		return nil, errors.Join(errInvalidSpec, fmt.Errorf("failed to parse firehose stream ARN: %w", err))
 	}
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(parsedARN.Region))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load AWS SDK config: %w", err)
 	}
 	if err := validateCredentials(ctx, cfg); err != nil {
-		return nil, err
+		return nil, errors.Join(errUnauthorized, err)
 	}
 	return &Client{
-		logger:         logger.With().Str("module", "firehose").Logger(),
+		logger:         logger,
 		spec:           s,
 		firehoseClient: firehose.NewFromConfig(cfg),
 	}, nil
@@ -58,7 +69,7 @@ func New(ctx context.Context, logger zerolog.Logger, specBytes []byte, _ plugin.
 
 func (*Client) Close(context.Context) error { return nil }
 
-func (*Client) Read(context.Context, *schema.Table, chan<- arrow.Record) error {
+func (*Client) Read(context.Context, *schema.Table, chan<- arrow.RecordBatch) error {
 	return plugin.ErrNotImplemented
 }
 

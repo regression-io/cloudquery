@@ -21,6 +21,10 @@ This is the (nested) plugin spec
 
   List of brokers to connect to.
 
+  Example broker address:
+
+  - `"localhost:9092"` default URL for a local Kafka broker
+
 - `format` (`string`) (required)
 
   Format of the output file. Supported values are `csv`, `json` and `parquet`.
@@ -41,9 +45,9 @@ This is the (nested) plugin spec
 
   If connecting via SASL/PLAIN, the password to use.
 
-- `client_id` (`string`) (optional) (default: `cq-destination-kafka`)
+- `enforce_tls_verification` (`boolean`) (optional) (default: `false`)
 
-  Client ID to be set for Kafka API calls.
+  If `true`, the plugin will verify the TLS certificate of the Kafka broker.
 
 - `verbose` (`boolean`) (optional) (default: `false`)
 
@@ -53,12 +57,73 @@ This is the (nested) plugin spec
 
   Number of records to write before starting a new object.
 
+- `topic_details` ([topic_details](#topic_details)) (optional)
+
+  Optional parameters to set topic details.
+
+- `tls_details` ([tls_details](#tls_details)) (optional)
+
+  Optional parameters to set TLS details for the Kafka connection.
+
+
 ### format_spec
+
+#### CSV
 
 - `delimiter` (`string`) (optional) (default: `,`)
 
-  Character that will be used as want to use as the delimiter if the format type is `csv`.
+  Delimiter to use in the CSV file.
 
 - `skip_header` (`boolean`) (optional) (default: `false`)
 
-  Specifies if the first line of a file should be the headers (when format is `csv`).
+  If set to `true`, the CSV file will not contain a header row as the first row.
+
+#### JSON
+
+Reserved for future use.
+
+#### Parquet
+
+- `version` (`string`) (optional) (default: `v2Latest`)
+
+  Parquet format version to use. Supported values are `v1.0`, `v2.4`, `v2.6` and `v2Latest`.
+  `v2Latest` is an alias for the latest version available in the Parquet library which is currently `v2.6`.
+
+  Useful when the reader consuming the Parquet files does not support the latest version.
+
+- `root_repetition` (`string`) (optional) (default: `repeated`)
+
+  [Repetition option to use for the root node](https://github.com/apache/arrow/issues/20243). Supported values are `undefined`, `required`, `optional` and `repeated`.
+
+  Some Parquet readers require a specific root repetition option to be able to read the file. For example, importing Parquet files into [Snowflake](https://www.snowflake.com/en/) requires the root repetition to be `undefined`.
+
+- `max_row_group_length` (`integer`) (optional) (default: `134217728` (= 128 * 1024 * 1024))
+
+  The maximum number of rows in a single row group. Use a lower number to reduce memory usage when reading the Parquet files, and a higher number to increase the efficiency of reading the Parquet files.
+
+### topic_details
+
+- `num_partitions` (`integer`) (optional) (default: `1`)
+
+  Number of partitions for the newly created topic.
+
+- `replication_factor` (`integer`) (optional) (default: `1`)
+
+  Replication factor for the topic.
+
+
+
+### tls_details
+- `ca_file_path` (`string`) (optional) (default: empty)
+
+   Path to the certificate authority file for TLS client authentication
+
+- `cert_file_path` (`string`) (optional) (default: empty)
+
+  Path to the certificate file for client authentication
+
+- `key_file_path` (`string`) (optional) (default: empty)
+
+  Path to the key file for client authentication.
+
+

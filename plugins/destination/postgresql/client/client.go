@@ -3,18 +3,21 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
-	"github.com/cloudquery/cloudquery/plugins/destination/postgresql/client/spec"
+	"github.com/cloudquery/cloudquery/plugins/destination/postgresql/v8/client/spec"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/writers/mixedbatchwriter"
 	pgx_zero_log "github.com/jackc/pgx-zerolog"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
+	"github.com/otan/gopgkrb5"
 	"github.com/rs/zerolog"
 )
 
@@ -24,17 +27,33 @@ type pkConstraintDetails struct {
 	columns []string
 }
 
+// DBPool is an interface that abstracts the pgxpool.Pool and pgxpool.Conn types for easier fine-grained testing.
+type DBPool interface {
+	Acquire(ctx context.Context) (*pgxpool.Conn, error)
+	Close()
+	CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error)
+	Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, query string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) pgx.Row
+	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
+}
+
 type Client struct {
-	conn                *pgxpool.Pool
+	conn                DBPool
 	logger              zerolog.Logger
 	currentDatabaseName string
 	currentSchemaName   string
 	pgType              pgType
-	batchSize           int
+	batchSize           int64
 	writer              *mixedbatchwriter.MixedBatchWriter
 
-	pgTablesToPKConstraints   map[string]*pkConstraintDetails
-	pgTablesToPKConstraintsMu sync.RWMutex
+	spec *spec.Spec
+
+	embeddingsRequester *EmbeddingsRequester
+
+	pgTablesToPKConstraints    map[string]*pkConstraintDetails
+	pgTablesToPKConstraintsMu  sync.RWMutex
+	pgVectorExtensionInstalled bool
 
 	plugin.UnimplementedSource
 }
@@ -50,6 +69,10 @@ const (
 	pgTypeCockroachDB
 	pgTypeCrateDB
 )
+
+func init() {
+	pgconn.RegisterGSSProvider(func() (pgconn.GSS, error) { return gopgkrb5.NewGSS() })
+}
 
 func New(ctx context.Context, logger zerolog.Logger, specBytes []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
 	c := &Client{
@@ -67,9 +90,10 @@ func New(ctx context.Context, logger zerolog.Logger, specBytes []byte, opts plug
 	if err := s.Validate(); err != nil {
 		return nil, err
 	}
-
+	c.spec = &s
 	c.batchSize = s.BatchSize
 	c.logger.Info().Str("pgx_log_level", s.PgxLogLevel.String()).Msg("Initializing postgresql destination")
+
 	pgxConfig, err := pgxpool.ParseConfig(s.ConnectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse connection string %w", err)
@@ -84,22 +108,40 @@ func New(ctx context.Context, logger zerolog.Logger, specBytes []byte, opts plug
 	}
 	// maybe expose this to the user?
 	pgxConfig.ConnConfig.RuntimeParams["timezone"] = "UTC"
+	if s.HasLakebaseConfig() {
+		if err := configureLakebase(pgxConfig, s.Lakebase); err != nil {
+			return nil, fmt.Errorf("failed to configure lakebase: %w", err)
+		}
+	}
+	if s.HasAWSIAMAuthConfig() {
+		if err := configureAWSIAMAuth(ctx, pgxConfig, s.AWSIAMAuth); err != nil {
+			return nil, fmt.Errorf("failed to configure aws iam auth: %w", err)
+		}
+	}
 	c.conn, err = pgxpool.NewWithConfig(ctx, pgxConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to postgresql: %w", err)
 	}
 
-	c.currentDatabaseName, err = c.currentDatabase(ctx)
+	c.currentDatabaseName, err = currentDatabase(ctx, c.conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current database: %w", err)
 	}
-	c.currentSchemaName, err = c.currentSchema(ctx)
+	c.currentSchemaName, err = currentSchema(ctx, c.conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current schema: %w", err)
 	}
 	c.pgType, err = c.getPgType(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database type: %w", err)
+	}
+	// Initialize embeddings requester if pgvector is configured and supported
+	if c.hasPgVectorConfig() {
+		er, err := NewEmbeddingsRequesterFromSpec(c.spec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize embeddings requester: %w", err)
+		}
+		c.embeddingsRequester = er
 	}
 	c.writer, err = mixedbatchwriter.New(c,
 		mixedbatchwriter.WithLogger(c.logger),
@@ -119,7 +161,7 @@ func (c *Client) Write(ctx context.Context, res <-chan message.WriteMessage) err
 
 func (c *Client) Close(ctx context.Context) error {
 	if c.conn == nil {
-		return fmt.Errorf("client already closed or not initialized")
+		return errors.New("client already closed or not initialized")
 	}
 
 	c.conn.Close()
@@ -127,18 +169,18 @@ func (c *Client) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) currentDatabase(ctx context.Context) (string, error) {
+func currentDatabase(ctx context.Context, conn DBPool) (string, error) {
 	var db string
-	err := c.conn.QueryRow(ctx, "select current_database()").Scan(&db)
+	err := conn.QueryRow(ctx, "select current_database()").Scan(&db)
 	if err != nil {
 		return "", err
 	}
 	return db, nil
 }
 
-func (c *Client) currentSchema(ctx context.Context) (string, error) {
+func currentSchema(ctx context.Context, conn DBPool) (string, error) {
 	var schema string
-	err := c.conn.QueryRow(ctx, "select current_schema()").Scan(&schema)
+	err := conn.QueryRow(ctx, "select current_schema()").Scan(&schema)
 	if err != nil {
 		return "", err
 	}
@@ -170,4 +212,8 @@ func (c *Client) getPgType(ctx context.Context) (pgType, error) {
 	}
 
 	return typ, nil
+}
+
+func (c *Client) hasPgVectorConfig() bool {
+	return c.spec != nil && c.pgType == pgTypePostgreSQL && c.spec.HasPgVectorConfig()
 }

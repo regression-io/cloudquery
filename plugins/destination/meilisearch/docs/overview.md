@@ -7,18 +7,18 @@ description: CloudQuery Meilisearch destination plugin documentation
 
 :badge
 
-The Meilisearch plugin syncs data from any [CloudQuery source plugins](/docs/plugins/sources/overview)
+The Meilisearch plugin syncs data from any [CloudQuery source plugins](https://www.cloudquery.io/hub/plugins/source)
 to a [Meilisearch](https://www.meilisearch.com) instance.
 
 ## Example config
 
 :configuration
 
-The Meilisearch destination utilizes batching, and supports [`batch_size`](/docs/reference/destination-spec#batch_size)
-and [`batch_size_bytes`](/docs/reference/destination-spec#batch_size_bytes).
+The Meilisearch destination utilizes batching, and supports [`batch_size`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size)
+and [`batch_size_bytes`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size_bytes).
 
 It supports `append` and `overwrite` write modes. Write mode selection is required through
-[`write_mode`](/docs/reference/destination-spec#write_mode).
+[`write_mode`](https://www.cloudquery.io/docs/cli/integrations/destinations#write_mode).
 
 ## Meilisearch Spec
 
@@ -61,7 +61,7 @@ This is the spec used by the Meilisearch destination plugin.
 
   PEM-encoded certificate authorities.
   When set, a certificate pool will be created by appending the certificates to the system pool.
-  See [file variable substitution](/docs/advanced-topics/environment-variable-substitution#file-variable-substitution-example) for how to read this value from a file.
+  See [file variable substitution](https://www.cloudquery.io/docs/cli/managing-cloudquery/environment-variables#file-variable-substitution-example) for how to read this value from a file.
 
 - `batch_size` (`integer`) (optional) (default: `1000`)
 
@@ -78,6 +78,6 @@ This is the spec used by the Meilisearch destination plugin.
 ## Underlying library
 
 We use the official [meilisearch-go](https://github.com/meilisearch/meilisearch-go) package.
-It is tested against Meilisearch v1.1.0.
+It is tested against Meilisearch v1.6.2.
 Please [open an issue](https://github.com/cloudquery/cloudquery/issues/new/choose)
 if you encounter any problems with this (or another) version.

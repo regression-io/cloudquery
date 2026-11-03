@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,7 +16,7 @@ import (
 )
 
 type Client struct {
-	Meilisearch *meilisearch.Client
+	Meilisearch meilisearch.ServiceManager
 
 	logger zerolog.Logger
 	spec   Spec
@@ -29,15 +30,18 @@ var _ plugin.Client = (*Client)(nil)
 var _ batchwriter.Client = (*Client)(nil)
 
 func (c *Client) Close(ctx context.Context) error {
+	if c.writer == nil {
+		return errors.New("client already closed or not initialized")
+	}
 	if err := c.writer.Close(ctx); err != nil {
 		return fmt.Errorf("failed to close writer: %w", err)
 	}
-	c.Meilisearch = nil
+	c.Meilisearch.Close()
 	return nil
 }
 
 func (*Client) DeleteStale(context.Context, message.WriteDeleteStales) error {
-	return fmt.Errorf("DeleteStale not supported")
+	return errors.New("DeleteStale not supported")
 }
 
 func (c *Client) verifyVersion() error {
@@ -73,7 +77,11 @@ func (c *Client) verifyVersion() error {
 	return fmt.Errorf("unsupported Meilisearch version %s (must be >= 1.1)", version.PkgVersion)
 }
 
-func New(_ context.Context, logger zerolog.Logger, specBytes []byte, _ plugin.NewClientOptions) (plugin.Client, error) {
+func New(_ context.Context, logger zerolog.Logger, specBytes []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
+	if opts.NoConnection {
+		return &Client{logger: logger.With().Str("module", "dest-meilisearch").Logger()}, nil
+	}
+
 	spec := Spec{}
 	if err := json.Unmarshal(specBytes, &spec); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal spec: %w", err)

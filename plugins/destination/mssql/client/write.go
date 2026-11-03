@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 )
 
@@ -21,7 +21,7 @@ func (c *Client) WriteTableBatch(ctx context.Context, _ string, messages message
 	}
 
 	table := messages[0].GetTable()
-	records := make([]arrow.Record, len(messages))
+	records := make([]arrow.RecordBatch, len(messages))
 	for i, m := range messages {
 		records[i] = m.Record
 	}

@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/cloudquery/cloudquery/plugins/destination/mssql/queries"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/cloudquery/cloudquery/plugins/destination/mssql/v5/queries"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	query := queries.Read(c.spec.Schema, table)
 	sc := table.ToArrowSchema()
 

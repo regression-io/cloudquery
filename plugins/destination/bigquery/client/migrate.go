@@ -3,31 +3,31 @@ package client
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/api/googleapi"
 )
 
 const (
 	concurrentMigrations = 10
 	checkTableFrequency  = 6 * time.Second
 	maxTableChecks       = 20
+	maxDescriptionLength = 16384
 )
+
+func trimDescription(description string) string {
+	if len(description) > maxDescriptionLength {
+		return description[:maxDescriptionLength]
+	}
+	return description
+}
 
 func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTables) error {
 	eg, gctx := errgroup.WithContext(ctx)
 	eg.SetLimit(concurrentMigrations)
-	for _, msg := range msgs {
-		if len(msg.Table.PrimaryKeys()) > 0 {
-			return fmt.Errorf("primary keys are not supported by the BigQuery plugin. Hint: try setting `write_mode: append` in the destination spec")
-		}
-	}
-
 	for _, msg := range msgs {
 		table := msg.Table
 		eg.Go(func() error {
@@ -63,13 +63,11 @@ func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTab
 
 func (c *Client) doesTableExist(ctx context.Context, client *bigquery.Client, table string) (bool, error) {
 	c.logger.Debug().Str("dataset", c.spec.DatasetID).Str("table", table).Msg("Checking existence")
-	tableRef := client.Dataset(c.spec.DatasetID).Table(table)
+	tableRef := client.DatasetInProject(c.spec.ProjectID, c.spec.DatasetID).Table(table)
 	md, err := tableRef.Metadata(ctx)
 	if err != nil {
-		if e, ok := err.(*googleapi.Error); ok {
-			if e.Code == http.StatusNotFound {
-				return false, nil
-			}
+		if isAPINotFoundError(err) {
+			return false, nil
 		}
 		c.logger.Error().Str("dataset", c.spec.DatasetID).Str("table", table).Err(err).Msg("Got unexpected error while checking table metadata")
 		return false, err
@@ -107,7 +105,7 @@ func (c *Client) waitForSchemaToMatch(ctx context.Context, client *bigquery.Clie
 		// require this check to pass 3 times in a row to mitigate getting different responses from different BQ servers
 		tries := 3
 		for j := 0; j < tries; j++ {
-			md, err := client.Dataset(c.spec.DatasetID).Table(table.Name).Metadata(ctx)
+			md, err := client.DatasetInProject(c.spec.ProjectID, c.spec.DatasetID).Table(table.Name).Metadata(ctx)
 			if err != nil {
 				return err
 			}
@@ -127,7 +125,7 @@ func (c *Client) waitForSchemaToMatch(ctx context.Context, client *bigquery.Clie
 }
 
 func (c *Client) autoMigrateTable(ctx context.Context, client *bigquery.Client, table *schema.Table) error {
-	bqTable := client.Dataset(c.spec.DatasetID).Table(table.Name)
+	bqTable := client.DatasetInProject(c.spec.ProjectID, c.spec.DatasetID).Table(table.Name)
 	md, err := bqTable.Metadata(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get metadata for table %q with error: %w", table.Name, err)
@@ -140,7 +138,7 @@ func (c *Client) autoMigrateTable(ctx context.Context, client *bigquery.Client, 
 	}
 	tm := bigquery.TableMetadataToUpdate{
 		Name:        table.Name,
-		Description: table.Description,
+		Description: trimDescription(table.Description),
 		Schema:      wantSchema,
 	}
 	_, err = bqTable.Update(ctx, tm, "")
@@ -171,24 +169,14 @@ func schemasMatch(haveSchema, wantSchema bigquery.Schema) bool {
 // mergeSchemas merges the schema we want with the schema we have, to avoid
 // losing any existing data
 func mergeSchemas(haveSchema, wantSchema bigquery.Schema) (bigquery.Schema, error) {
-	haveMap := make(map[string]*bigquery.FieldSchema)
-	for _, f := range haveSchema {
-		haveMap[f.Name] = f
-	}
-	wantMap := make(map[string]*bigquery.FieldSchema)
-	for _, f := range wantSchema {
-		wantMap[f.Name] = f
-	}
+	haveMap := fieldsByName(haveSchema)
+	wantMap := fieldsByName(wantSchema)
 	merged := make(bigquery.Schema, 0, len(wantSchema))
 	// keep everything in the schema we have, as long as the types didn't change
 	// or an unknown column isn't required
 	for _, f := range haveSchema {
-		if want, ok := wantMap[f.Name]; ok {
-			if want.Type != f.Type {
-				return nil, fmt.Errorf("column %v changed type from %v to %v. Try dropping the column and re-running", f.Name, f.Type, want.Type)
-			}
-		} else if f.Required {
-			return nil, fmt.Errorf("column %v is required but not in new schema", f.Name)
+		if err := checkFieldMigration(f, wantMap[f.Name]); err != nil {
+			return nil, err
 		}
 		merged = append(merged, f)
 	}
@@ -201,37 +189,61 @@ func mergeSchemas(haveSchema, wantSchema bigquery.Schema) (bigquery.Schema, erro
 	return merged, nil
 }
 
+func fieldsByName(s bigquery.Schema) map[string]*bigquery.FieldSchema {
+	fields := make(map[string]*bigquery.FieldSchema, len(s))
+	for _, f := range s {
+		fields[f.Name] = f
+	}
+	return fields
+}
+
+func checkFieldMigration(have, want *bigquery.FieldSchema) error {
+	if want == nil {
+		if have.Required {
+			return fmt.Errorf("column %v is required but not in new schema", have.Name)
+		}
+		return nil
+	}
+	if want.Type != have.Type {
+		return fmt.Errorf("column %v changed type from %v to %v. Try dropping the column and re-running", have.Name, have.Type, want.Type)
+	}
+	return nil
+}
+
 func (c *Client) createTable(ctx context.Context, client *bigquery.Client, table *schema.Table) error {
 	bqSchema := c.bigQuerySchemaForTable(table)
 	tm := bigquery.TableMetadata{
 		Name:             table.Name,
 		Location:         "",
-		Description:      table.Description,
+		Description:      trimDescription(table.Description),
 		Schema:           bqSchema,
 		TimePartitioning: c.timePartitioning(),
 	}
-	return client.Dataset(c.spec.DatasetID).Table(table.Name).Create(ctx, &tm)
+	return client.DatasetInProject(c.spec.ProjectID, c.spec.DatasetID).Table(table.Name).Create(ctx, &tm)
 }
 
 func (c *Client) timePartitioning() *bigquery.TimePartitioning {
-	switch c.spec.TimePartitioning {
-	case TimePartitioningOptionHour:
-		return &bigquery.TimePartitioning{
-			Type:  "HOUR",
-			Field: "_cq_sync_time",
-		}
-	case TimePartitioningOptionDay:
-		return &bigquery.TimePartitioning{
-			Type:  "DAY",
-			Field: "_cq_sync_time",
-		}
-	default:
+	values := map[TimePartitioningOption]bigquery.TimePartitioningType{
+		TimePartitioningOptionHour:  bigquery.HourPartitioningType,
+		TimePartitioningOptionDay:   bigquery.DayPartitioningType,
+		TimePartitioningOptionMonth: bigquery.MonthPartitioningType,
+		TimePartitioningOptionYear:  bigquery.YearPartitioningType,
+	}
+
+	v, ok := values[c.spec.TimePartitioning]
+	if !ok {
 		return nil
+	}
+
+	return &bigquery.TimePartitioning{
+		Type:       v,
+		Field:      schema.CqSyncTimeColumn.Name,
+		Expiration: c.spec.TimePartitioningExpiration.Duration(),
 	}
 }
 
 func (c *Client) bigQuerySchemaForTable(table *schema.Table) bigquery.Schema {
-	s := bigquery.Schema{}
+	s := make(bigquery.Schema, 0, len(table.Columns))
 	for _, col := range table.Columns {
 		s = append(s, c.ColumnToBigQuerySchema(col))
 	}

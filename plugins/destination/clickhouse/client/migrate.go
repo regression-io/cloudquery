@@ -2,21 +2,43 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
-	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/queries"
-	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/typeconv"
-	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/util"
+	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/v8/client/spec"
+	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/v8/queries"
+	"github.com/cloudquery/cloudquery/plugins/destination/clickhouse/v8/typeconv"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
+	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 )
 
+type tableChanges struct {
+	alreadyExists         bool
+	forcedMigrationNeeded bool
+	oldTTL                string
+	newTTL                string
+	tableSchemaChanges    []tableSchemaChange
+	changes               []schema.TableColumnChange
+}
+
+type tableSchemaChangeKind string
+
+const (
+	partitionKeyChange tableSchemaChangeKind = "partition_key_change"
+	sortKeyChange      tableSchemaChangeKind = "sort_key_change"
+)
+
+type tableSchemaChange struct {
+	kind   tableSchemaChangeKind
+	change string
+}
+
 // MigrateTables relies on the CLI/client to lock before running migration.
 func (c *Client) MigrateTables(ctx context.Context, messages message.WriteMigrateTables) error {
-	have, err := c.getTableDefinitions(ctx, messages)
+	have, err := retryGetTableDefinitions(ctx, c.logger, c.database, c.conn, messages)
 	if err != nil {
 		return err
 	}
@@ -26,8 +48,29 @@ func (c *Client) MigrateTables(ctx context.Context, messages message.WriteMigrat
 		return err
 	}
 
-	if err := c.checkForced(have, want, messages); err != nil {
+	tablesWeCanForceMigrate := map[string]bool{}
+	for _, msg := range messages {
+		// last message takes precedence; we don't actually expect the same table to be
+		// in the same batch twice.
+		tablesWeCanForceMigrate[msg.Table.Name] = msg.MigrateForce
+	}
+
+	allTablesChanges, err := c.allTablesChanges(ctx, want, have)
+	if err != nil {
 		return err
+	}
+
+	nonAutoMigratableTables := lo.Filter(lo.Keys(allTablesChanges), func(table string, _ int) bool {
+		return allTablesChanges[table].forcedMigrationNeeded && !tablesWeCanForceMigrate[table]
+	})
+	if len(nonAutoMigratableTables) > 0 {
+		changes := lo.FromEntries(lo.Map(nonAutoMigratableTables, func(table string, _ int) lo.Entry[string, tableChanges] {
+			return lo.Entry[string, tableChanges]{
+				Key:   table,
+				Value: allTablesChanges[table],
+			}
+		}))
+		return fmt.Errorf("\n\nCan't migrate tables automatically, migrate manually or consider using 'migrate_mode: forced'.\n\nNon auto-migratable tables:\n\n%s", summarizeTableChanges(changes))
 	}
 
 	const maxConcurrentMigrate = 10
@@ -35,55 +78,120 @@ func (c *Client) MigrateTables(ctx context.Context, messages message.WriteMigrat
 	eg.SetLimit(maxConcurrentMigrate)
 
 	for _, want := range want {
-		want := want
 		eg.Go(func() (err error) {
 			c.logger.Info().Str("table", want.Name).Msg("Migrating table started")
 			defer func() {
 				c.logger.Err(err).Str("table", want.Name).Msg("Migrating table done")
 			}()
 			if len(want.Columns) == 0 {
-				c.logger.Warn().Str("table", want.Name).Msg("Table with no columns, skip")
+				c.logger.Warn().Str("table", want.Name).Msg("Table with no columns, skipping")
 				return nil
 			}
 
-			have := have.Get(want.Name)
-			if have == nil {
-				return c.createTable(ctx, want)
+			tableName := want.Name
+			tableChanges := allTablesChanges[tableName]
+			if !tableChanges.alreadyExists {
+				c.logger.Info().Str("table", tableName).Msg("Table doesn't exist, creating")
+				return c.createTable(ctx, want, c.spec.Partition, c.spec.OrderBy, c.spec.TTL)
 			}
 
-			return c.autoMigrate(ctx, have, want)
+			if tableChanges.forcedMigrationNeeded {
+				c.logger.Info().Str("table", tableName).Msg("Table exists, force migration required")
+				if err := c.dropTable(ctx, want); err != nil {
+					return err
+				}
+				return c.createTable(ctx, want, c.spec.Partition, c.spec.OrderBy, c.spec.TTL)
+			}
+
+			return c.autoMigrate(ctx, tableName, tableChanges)
 		})
 	}
 
 	return eg.Wait()
 }
 
-func (c *Client) checkForced(have, want schema.Tables, messages message.WriteMigrateTables) error {
-	forcedErr := false
-	for _, m := range messages {
-		if m.MigrateForce {
+func summarizeTableChanges(tablesChanges map[string]tableChanges) string {
+	tables := lo.Keys(tablesChanges)
+	slices.Sort(tables)
+	summary := strings.Builder{}
+	for i, table := range tables {
+		summary.WriteString(fmt.Sprintf("%s:", table))
+		changes := tablesChanges[table]
+		changesString := lo.Map(changes.changes, func(change schema.TableColumnChange, _ int) string {
+			return fmt.Sprintf("  - %s", schema.GetColumnChangeSummary(change))
+		})
+		slices.Sort(changesString)
+		if len(changesString) > 0 {
+			summary.WriteString("\n" + strings.Join(changesString, "\n"))
+		}
+
+		// write sorting and partition key changes
+		if len(changes.tableSchemaChanges) > 0 {
+			summary.WriteString("\n")
+			schemaChanges := lo.Map(changes.tableSchemaChanges, func(change tableSchemaChange, _ int) string {
+				return fmt.Sprintf("  - %s", strings.ToUpper(change.change[0:1])+change.change[1:])
+			})
+			slices.Sort(schemaChanges)
+			summary.WriteString(strings.Join(schemaChanges, "\n"))
+		}
+
+		if i < len(tables)-1 {
+			summary.WriteString("\n\n")
+		}
+	}
+
+	return summary.String()
+}
+
+func (c *Client) allTablesChanges(ctx context.Context, want schema.Tables, have schema.Tables) (map[string]tableChanges, error) {
+	result := make(map[string]tableChanges)
+	for _, t := range want {
+		chTable := have.Get(t.Name)
+		if chTable == nil {
+			result[t.Name] = tableChanges{
+				alreadyExists:         false,
+				forcedMigrationNeeded: false,
+				oldTTL:                "",
+				newTTL:                "",
+				tableSchemaChanges:    nil,
+				changes:               nil,
+			}
 			continue
 		}
+		changes := t.GetChanges(chTable)
 
-		// check that this migration can go through
-		have := have.Get(m.Table.Name)
-		if have == nil {
-			continue // create new is always OK
+		tableSchemaChanges, err := c.checkPartitionOrOrderByChanged(ctx, t, c.spec.Partition, c.spec.OrderBy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check partition or order by changes for table %s: %w", t.Name, err)
 		}
-		want := want.Get(m.Table.Name) // and it should never be nil
-		if unsafe := unsafeChanges(want.GetChanges(have)); len(unsafe) > 0 {
-			c.logger.Error().
-				Str("table", m.Table.Name).
-				Str("changes", util.ChangesPrettified(m.Table.Name, unsafe)).
-				Msg("migrate manually or consider using 'migrate_mode: forced'")
-			forcedErr = true
+
+		forcedMigrationNeeded := forceMigrationNeeded(changes, tableSchemaChanges)
+		oldTTL, newTTL, err := c.checkTTLChanged(ctx, t)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check TTL changes for table %s: %w", t.Name, err)
+		}
+		result[t.Name] = tableChanges{
+			alreadyExists:         true,
+			changes:               changes,
+			oldTTL:                oldTTL,
+			newTTL:                newTTL,
+			tableSchemaChanges:    tableSchemaChanges,
+			forcedMigrationNeeded: forcedMigrationNeeded,
 		}
 	}
+	return result, nil
+}
 
-	if forcedErr {
-		return errors.New("migrate manually or consider using 'migrate_mode: forced'")
+func forceMigrationNeeded(changes []schema.TableColumnChange, tableChanges []tableSchemaChange) bool {
+	if unsafe := unsafeChanges(changes); len(unsafe) > 0 {
+		return true
 	}
-	return nil
+
+	if len(tableChanges) > 0 {
+		return true
+	}
+
+	return false
 }
 
 func unsafeChanges(changes []schema.TableColumnChange) []schema.TableColumnChange {
@@ -96,29 +204,33 @@ func unsafeChanges(changes []schema.TableColumnChange) []schema.TableColumnChang
 	return slices.Clip(unsafe)
 }
 
-func (c *Client) createTable(ctx context.Context, table *schema.Table) (err error) {
-	c.logger.Debug().Str("table", table.Name).Msg("Table doesn't exist, creating")
-
-	query, err := queries.CreateTable(table, c.spec.Cluster, c.spec.Engine)
+func (c *Client) createTable(ctx context.Context, table *schema.Table, partition []spec.PartitionStrategy, orderBy []spec.OrderByStrategy, ttl []spec.TTLStrategy) (err error) {
+	query, err := queries.CreateTable(table, c.spec.Cluster, c.spec.Engine, partition, orderBy, ttl)
 	if err != nil {
 		return err
 	}
 
-	if err := c.conn.Exec(ctx, query); err != nil {
+	if err := retryExec(ctx, c.logger, c.conn, query); err != nil {
 		return fmt.Errorf("failed to create table, query:\n%s\nerror: %w", query, err)
 	}
 	return nil
 }
 
 func (c *Client) dropTable(ctx context.Context, table *schema.Table) error {
-	c.logger.Debug().Str("table", table.Name).Msg("Dropping table")
+	c.logger.Info().Str("table", table.Name).Msg("Dropping table")
 
-	return c.conn.Exec(ctx, queries.DropTable(table, c.spec.Cluster))
+	return retryExec(ctx, c.logger, c.conn, queries.DropTable(table, c.spec.Cluster))
 }
 
 func needsTableDrop(change schema.TableColumnChange) bool {
-	// We can safely add a nullable column without dropping the table
-	if change.Type == schema.TableColumnChangeTypeAdd && !change.Current.NotNull {
+	// Support for adding the cq_client_id column without dropping the table
+	if change.Type == schema.TableColumnChangeTypeAdd && change.Current.Name == schema.CqClientIDColumn.Name {
+		return false
+	}
+
+	// We can add new nullable columns or non-nullable columns that are not part of the sort key
+	isCompoundType := queries.IsCompoundType(change.Current)
+	if change.Type == schema.TableColumnChangeTypeAdd && (isCompoundType || !change.Current.NotNull) {
 		return false
 	}
 
@@ -131,36 +243,135 @@ func needsTableDrop(change schema.TableColumnChange) bool {
 	return true
 }
 
-func (c *Client) autoMigrate(ctx context.Context, have, want *schema.Table) error {
-	changes := want.GetChanges(have)
-
-	if unsafe := unsafeChanges(changes); len(unsafe) > 0 {
-		// we can get here only with migrate_mode: forced
-		if err := c.dropTable(ctx, have); err != nil {
-			return err
-		}
-
-		return c.createTable(ctx, want)
-	}
-
-	for _, change := range changes {
+func (c *Client) autoMigrate(ctx context.Context, tableName string, tableChanges tableChanges) error {
+	for _, change := range tableChanges.changes {
 		// we only handle new columns
 		if change.Type != schema.TableColumnChangeTypeAdd {
 			continue
 		}
 
-		c.logger.Debug().Str("table", want.Name).Str("column", change.Current.Name).Msg("Adding new column")
+		c.logger.Info().Str("table", tableName).Str("column", change.Current.Name).Msg("Adding new column")
 
-		query, err := queries.AddColumn(want.Name, c.spec.Cluster, change.Current)
+		query, err := queries.AddColumn(tableName, c.spec.Cluster, change.Current)
 		if err != nil {
 			return err
 		}
 
-		err = c.conn.Exec(ctx, query)
+		err = retryExec(ctx, c.logger, c.conn, query)
 		if err != nil {
 			return err
 		}
 	}
 
+	if tableChanges.oldTTL != tableChanges.newTTL {
+		query := queries.SetTTL(tableName, c.spec.Cluster, tableChanges.newTTL)
+		if err := retryExec(ctx, c.logger, c.conn, query); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func (c *Client) checkPartitionOrOrderByChanged(ctx context.Context, table *schema.Table, partition []spec.PartitionStrategy, orderBy []spec.OrderByStrategy) ([]tableSchemaChange, error) {
+	wantPartitionKey, wantSortingKey, err := resolvePartitionKeyAndSortingKey(table, partition, orderBy)
+	if err != nil {
+		return nil, err
+	}
+
+	havePartitionKey, haveSortingKey, err := c.getPartitionKeyAndSortingKey(ctx, table)
+	if err != nil {
+		return nil, err
+	}
+
+	changes := partitionOrSortingKeyChanges(havePartitionKey, haveSortingKey, wantPartitionKey, wantSortingKey)
+	for _, change := range changes {
+		c.logger.Info().Str("table", table.Name).Msg(change.change)
+	}
+	return changes, nil
+}
+
+func resolvePartitionKeyAndSortingKey(table *schema.Table, partition []spec.PartitionStrategy, orderBy []spec.OrderByStrategy) (partitionKey, sortingKey []string, err error) {
+	resolvedOrderBy, err := queries.ResolveOrderBy(table, orderBy)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resolvedPartitionBy, err := queries.ResolvePartitionBy(table, partition)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	splitPartitionBy := []string{}
+	if resolvedPartitionBy != "" {
+		splitPartitionBy = strings.Split(resolvedPartitionBy, ",")
+	}
+
+	partitionKey = make([]string, 0, len(splitPartitionBy))
+	for _, key := range splitPartitionBy {
+		partitionKey = append(partitionKey, dequote(key))
+	}
+
+	sortingKey = make([]string, 0, len(resolvedOrderBy))
+	for _, key := range resolvedOrderBy {
+		sortingKey = append(sortingKey, dequote(key))
+	}
+
+	return partitionKey, sortingKey, nil
+}
+
+func partitionOrSortingKeyChanges(havePartitionKey, haveSortingKey, wantPartitionKey, wantSortingKey []string) []tableSchemaChange {
+	changes := make([]tableSchemaChange, 0, 2)
+	if !slices.Equal(havePartitionKey, wantPartitionKey) {
+		changes = append(changes, tableSchemaChange{
+			kind:   partitionKeyChange,
+			change: fmt.Sprintf("partition key changed (was [%s] and would become [%s])", strings.Join(havePartitionKey, ","), strings.Join(wantPartitionKey, ",")),
+		})
+	}
+	if !slices.Equal(haveSortingKey, wantSortingKey) {
+		changes = append(changes, tableSchemaChange{
+			kind:   sortKeyChange,
+			change: fmt.Sprintf("sorting key changed (was [%s] and would become [%s])", strings.Join(haveSortingKey, ","), strings.Join(wantSortingKey, ",")),
+		})
+	}
+	return slices.Clip(changes)
+}
+
+func (c *Client) checkTTLChanged(ctx context.Context, table *schema.Table) (oldTTL string, newTTL string, err error) {
+	resolvedTTL, err := queries.ResolveTTL(table, c.spec.TTL)
+	if err != nil {
+		return "", "", err
+	}
+
+	isCqSyncTimeNotNull := checkIfCqSyncTimeNotNull(table)
+	wantTTL := queries.GetTTLString(resolvedTTL, isCqSyncTimeNotNull)
+
+	haveTTL, err := c.getTTL(ctx, table)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get TTL for table %s: %w", table.Name, err)
+	}
+
+	equalTTLs, err := c.equalTTLs(table, haveTTL, wantTTL)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to compare TTLs for table %s: %w", table.Name, err)
+	}
+	if !equalTTLs {
+		msg := fmt.Sprintf("TTL changed (was [%s] and would become [%s])", haveTTL, wantTTL)
+		c.logger.Info().Str("table", table.Name).Msg(msg)
+	}
+	return haveTTL, wantTTL, nil
+}
+
+func checkIfCqSyncTimeNotNull(table *schema.Table) bool {
+	// Check if the table has a non-nullable cq_sync_time column
+	for _, column := range table.Columns {
+		if column.Name == schema.CqSyncTimeColumn.Name && column.NotNull {
+			return true
+		}
+	}
+	return false // Assume cq_sync_time is nullable by default
+}
+
+func dequote(s string) string {
+	return strings.TrimSpace(strings.Trim(s, `"'`+"`"))
 }

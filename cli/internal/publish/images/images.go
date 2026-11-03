@@ -2,35 +2,36 @@ package images
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	cloudquery_api "github.com/cloudquery/cloudquery-api-go"
-	"github.com/cloudquery/cloudquery/cli/internal/hub"
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"golang.org/x/net/html"
-
-	"github.com/yuin/goldmark/parser"
-	"github.com/yuin/goldmark/text"
-	"github.com/yuin/goldmark/util"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/hub"
+	"github.com/yuin/goldmark/v2/ast"
+	"github.com/yuin/goldmark/v2/parser"
+	"github.com/yuin/goldmark/v2/text"
+	"github.com/yuin/goldmark/v2/util"
 	"golang.org/x/exp/maps"
+	"golang.org/x/net/html"
 	"golang.org/x/sync/errgroup"
 )
 
 type reference struct {
-	ref     string // image filename inc. all paths (to replace with URL)
-	absFile string // absolute path to image file, to upload
-	url     string // result of upload
+	ref         string // image filename inc. all paths (to replace with URL)
+	absFile     string // absolute path to image file, to upload
+	contentType string // content type of the file
+	url         string // result of upload
 
 	startPos int // start of complete markdown tag. if html: start of actual ref
 	endPos   int // exclusive
@@ -38,6 +39,25 @@ type reference struct {
 
 type listKey struct {
 	name, sum string
+}
+
+func DetectContentType(filename string) (string, error) {
+	contentType := mime.TypeByExtension(filepath.Ext(filename))
+	if contentType != "" {
+		return contentType, nil
+	}
+
+	filebytes := make([]byte, 512)
+	fp, err := os.Open(filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to open file: %w", err)
+	}
+	defer fp.Close()
+	if _, err := fp.Read(filebytes); err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return http.DetectContentType(filebytes), nil
 }
 
 func ProcessDocument(ctx context.Context, c *cloudquery_api.ClientWithResponses, teamName, docDir, contents string) (string, error) {
@@ -52,10 +72,20 @@ func ProcessDocument(ctx context.Context, c *cloudquery_api.ClientWithResponses,
 	fmt.Println("Preparing to upload images...")
 
 	reqs := make([]cloudquery_api.TeamImageCreate, 0, len(ims))
-	for k := range ims {
+	for k, v := range ims {
+		if len(v) == 0 {
+			continue
+		}
+		absFile := v[0].absFile
+		contentType, err := DetectContentType(absFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to get content type for file %q: %w", absFile, err)
+		}
+		v[0].contentType = contentType
 		reqs = append(reqs, cloudquery_api.TeamImageCreate{
-			Name:     k.name,
-			Checksum: k.sum,
+			Name:        k.name,
+			Checksum:    k.sum,
+			ContentType: cloudquery_api.ContentType(contentType),
 		})
 	}
 
@@ -94,7 +124,7 @@ func ProcessDocument(ctx context.Context, c *cloudquery_api.ClientWithResponses,
 		item := item
 		absFile := ims[listKey{name: item.Name, sum: item.Checksum}][0].absFile
 		eg.Go(func() error {
-			return uploadFile(egCtx, *item.UploadURL, absFile)
+			return uploadImage(egCtx, item, absFile)
 		})
 	}
 
@@ -109,14 +139,10 @@ func findMarkdownImages(contents, docDir string) (map[listKey][]reference, error
 	imf := &imageFinder{
 		docDir: docDir,
 	}
-	p := goldmark.New(
-		goldmark.WithParserOptions(
-			parser.WithASTTransformers(util.Prioritized(imf, 999999)),
-		),
+	p := parser.New(
+		parser.WithASTTransformers(util.Prioritized[parser.ASTTransformer](imf, 999999)),
 	)
-	if err := p.Convert([]byte(contents), io.Discard); err != nil {
-		return nil, fmt.Errorf("failed to parse markdown: %w", err)
-	}
+	p.Parse([]byte(contents))
 	if imf.err != nil {
 		return nil, imf.err
 	}
@@ -147,11 +173,17 @@ func convertMarkdownReferences(ims map[listKey][]reference) ([]reference, error)
 		}
 	}
 
-	sort.Slice(posList, func(i, j int) bool {
-		if posList[i].at == posList[j].at {
-			return !posList[i].end
+	slices.SortFunc(posList, func(a, b pos) int {
+		if a.at == b.at {
+			if !a.end && b.end {
+				return -1
+			}
+			if a.end && !b.end {
+				return 1
+			}
+			return 0
 		}
-		return posList[i].at < posList[j].at
+		return cmp.Compare(a.at, b.at)
 	})
 
 	// check for overlaps
@@ -181,8 +213,8 @@ func replaceMarkdownImages(contents string, ims map[listKey][]reference) (string
 	}
 
 	// sort by start position, descending
-	sort.Slice(reps, func(i, j int) bool {
-		return reps[i].startPos > reps[j].startPos
+	slices.SortFunc(reps, func(a, b reference) int {
+		return cmp.Compare(b.startPos, a.startPos)
 	})
 
 	// replace in reverse order
@@ -195,27 +227,26 @@ func replaceMarkdownImages(contents string, ims map[listKey][]reference) (string
 	return contents, nil
 }
 
-func uploadFile(ctx context.Context, uploadURL, file string) error {
+func uploadImage(ctx context.Context, item cloudquery_api.TeamImage, file string) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	first512 := make([]byte, 512)
-	if _, err := f.Read(first512); err != nil {
-		return err
-	}
-	ct := http.DetectContentType(first512)
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, uploadURL, f)
+	req, err := http.NewRequest(http.MethodPut, *item.UploadURL, f)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", ct)
+	for k, v := range item.RequiredHeaders {
+		if headers, ok := v.([]any); ok {
+			for _, h := range headers {
+				if header, ok := h.(string); ok {
+					req.Header.Add(k, header)
+				}
+			}
+		}
+	}
 
 	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
@@ -288,8 +319,8 @@ func (f *imageFinder) Transform(node *ast.Document, reader text.Reader, pc parse
 		dest, title string
 	}
 
-	refs := pc.References()
-	refList := make(map[refKeyType][]parser.Reference, len(refs))
+	refs := pc.LinkDefinitions()
+	refList := make(map[refKeyType][]parser.LinkDefinition, len(refs))
 	for _, ref := range refs {
 		key := refKeyType{dest: string(ref.Destination()), title: string(ref.Title())}
 		refList[key] = append(refList[key], ref) // multiple refs can have the same dest/title (but different labels)
@@ -313,48 +344,25 @@ func (f *imageFinder) Transform(node *ast.Document, reader text.Reader, pc parse
 		switch el := n.(type) {
 		case *ast.Image:
 			imgRef := reference{
-				ref: string(el.Destination),
+				ref: el.Destination.Str(src),
 			}
-			refKey := refKeyType{dest: imgRef.ref, title: string(el.Title)}
+			refKey := refKeyType{dest: imgRef.ref, title: el.Title.Str(src)}
 			imageDestinations[refKey] = struct{}{} // mark this as an image so that we can cross-check with the reference list later
 			if len(refList[refKey]) > 0 {
 				// it's a reference, no need to check further as we won't find anything useful (regarding byte positions). Leave it to the reference handler
 				return ast.WalkContinue, nil
 			}
 
-			p := el.BaseNode.Parent()
-			for p != nil && imgRef.endPos == 0 {
-				if p.Kind() == ast.KindParagraph {
-					for i := 0; i < p.Lines().Len(); i++ {
-						// we can have multiple lines in a paragraph, so we need to check each one to match destination/title, hoping there are no dupes
-						lineLiteral := src[p.Lines().At(i).Start:p.Lines().At(i).Stop]
-
-						// these checks are false negative if this image is a reference, but we handled them above
-						if !bytes.Contains(lineLiteral, el.Destination) || (len(el.Title) > 0 && !bytes.Contains(lineLiteral, el.Title)) {
-							continue
-						}
-						if len(el.Title) == 0 { // if no title, make sure the element ends with the link
-							parts := bytes.SplitN(lineLiteral, el.Destination, 2)
-							if len(parts) != 2 || !bytes.HasPrefix(bytes.TrimSpace(parts[1]), []byte(")")) { // HasPrefix because we can be inside a link
-								continue
-							}
-						}
-						imgRef.startPos, imgRef.endPos = p.Lines().At(i).Start, p.Lines().At(i).Stop
-						break
-					}
-					break
+			if el.BaseNode.Parent() != nil && imgRef.endPos == 0 {
+				if seg, found := handleImage(el, src); found {
+					imgRef.startPos, imgRef.endPos = seg.Start, seg.Stop
 				}
-				p = p.Parent()
 			}
 			imgs = append(imgs, imgRef)
 		case *ast.CodeBlock:
 			return ast.WalkSkipChildren, nil
-		case *ast.FencedCodeBlock:
-			return ast.WalkSkipChildren, nil
 		case *ast.HTMLBlock:
-			sz := el.Lines().Len()
-			for i := 0; i < sz; i++ {
-				a := el.Lines().At(i)
+			for i, a := range el.Value.Segments() {
 				htmlBytes = append(htmlBytes, src[a.Start:a.Stop]...)
 				if i == 0 {
 					htmlStartPos = a.Start
@@ -362,22 +370,10 @@ func (f *imageFinder) Transform(node *ast.Document, reader text.Reader, pc parse
 			}
 			// handle htmlBytes below
 		case *ast.RawHTML:
-			if el.Segments != nil {
-				for i := 0; i < el.Segments.Len(); i++ { // should have 1 segment per tag?
-					a := el.Segments.At(i)
-					htmlBytes = append(htmlBytes, src[a.Start:a.Stop]...)
-					if i == 0 {
-						htmlStartPos = a.Start
-					}
-				}
-			} else {
-				sz := el.Lines().Len()
-				for i := 0; i < sz; i++ {
-					a := el.Lines().At(i)
-					htmlBytes = append(htmlBytes, src[a.Start:a.Stop]...)
-					if i == 0 {
-						htmlStartPos = a.Start
-					}
+			for i, a := range el.Value.Indices() {
+				htmlBytes = append(htmlBytes, src[a.Start:a.Stop]...)
+				if i == 0 {
+					htmlStartPos = a.Start
 				}
 			}
 			// handle htmlBytes below
@@ -402,14 +398,11 @@ func (f *imageFinder) Transform(node *ast.Document, reader text.Reader, pc parse
 
 	f.err = func() error {
 		refKeys := maps.Keys(refList)
-		sort.Slice(refKeys, func(i, j int) bool {
-			if refKeys[i].title == refKeys[j].title {
-				return refKeys[i].dest < refKeys[j].dest
+		slices.SortFunc(refKeys, func(a, b refKeyType) int {
+			if c := cmp.Compare(a.dest, b.dest); c != 0 {
+				return c
 			}
-			if refKeys[i].dest == refKeys[j].dest {
-				return refKeys[i].title < refKeys[j].title
-			}
-			return refKeys[i].dest < refKeys[j].dest && refKeys[i].title < refKeys[j].title
+			return cmp.Compare(a.title, b.title)
 		})
 
 		for _, refKey := range refKeys {
@@ -465,6 +458,35 @@ func (f *imageFinder) Transform(node *ast.Document, reader text.Reader, pc parse
 		}
 		return nil
 	}()
+}
+
+func handleImage(el *ast.Image, source []byte) (seg text.Segment, found bool) {
+	destination := el.Destination.Bytes(source)
+	title := el.Title.Bytes(source)
+	p := el.BaseNode.Parent()
+	for p != nil {
+		if para, ok := p.(*ast.Paragraph); ok {
+			for _, line := range para.Source() {
+				// we can have multiple lines in a paragraph, so we need to check each one to match destination/title, hoping there are no dupes
+				lineLiteral := source[line.Start:line.Stop]
+
+				// these checks are false negative if this image is a reference, but we handled them above
+				if !bytes.Contains(lineLiteral, destination) || (len(title) > 0 && !bytes.Contains(lineLiteral, title)) {
+					continue
+				}
+				if len(title) == 0 { // if no title, make sure the element ends with the link
+					parts := bytes.SplitN(lineLiteral, destination, 2)
+					if len(parts) != 2 || !bytes.HasPrefix(bytes.TrimSpace(parts[1]), []byte(")")) { // HasPrefix because we can be inside a link
+						continue
+					}
+				}
+				return line, true
+			}
+			break
+		}
+		p = p.Parent()
+	}
+	return seg, false
 }
 
 func parseHTMLImages(htmlBytes []byte, htmlOffset int) ([]reference, error) {

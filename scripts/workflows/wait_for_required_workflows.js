@@ -23,9 +23,27 @@ module.exports = async ({github, context}) => {
     const matchesFile = (action) => {
         return files.some(file => file.startsWith(`${action}/`) || matchesWorkflow(file, action))
     }
+
+    const getPluginsWithConfigUI = () => {
+        const cloudConfigUIDir = "/cloud-config-ui"
+        const configUIDirectories = fs.readdirSync("plugins", {recursive: true}).filter(directory => directory.endsWith(cloudConfigUIDir))
+        const plugins = configUIDirectories.map(directory => `plugins/${directory.replace(cloudConfigUIDir, "")}`)
+        console.log(`Found the following plugins with config UI: ${plugins.join(", ")}`)
+        return plugins
+    }
+
+    const getPluginsWithFipsVersion = () => {
+        const mainFipsGoFile = "/main_fips.go"
+        const mainFipsGoFiles = fs.readdirSync("plugins", {recursive: true}).filter(file => file.endsWith(mainFipsGoFile))
+        const plugins = mainFipsGoFiles.map(file => `plugins/${file.replace(mainFipsGoFile, "")}`)
+        console.log(`Found the following plugins with fips version: ${plugins.join(", ")}`)
+        return plugins
+    }
+
     const sources = fs.readdirSync("plugins/source", {withFileTypes: true}).filter(dirent => dirent.isDirectory()).map(dirent => `plugins/source/${dirent.name}`)
     const destinations = fs.readdirSync("plugins/destination", {withFileTypes: true}).filter(dirent => dirent.isDirectory()).map(dirent => `plugins/destination/${dirent.name}`)
-    const allComponents = ["cli", "scaffold", ...sources, ...destinations]
+    const transformers = fs.readdirSync("plugins/transformer", {withFileTypes: true}).filter(dirent => dirent.isDirectory()).map(dirent => `plugins/transformer/${dirent.name}`)
+    const allComponents = ["cli", "scaffold", ...sources, ...destinations, ...transformers]
     console.log(`All components: ${allComponents.join(", ")}`)
     let actions = allComponents.filter(action => matchesFile(action))
     if (actions.length === 0) {
@@ -41,9 +59,26 @@ module.exports = async ({github, context}) => {
     if (actions.includes("cli")) {
         actions = [...actions, 'validate-release']
         actions = actions.filter(action => action !== "cli")
-        actions = ["cli (ubuntu-latest)", "cli (windows-latest)", "cli (macos-latest)", ...actions]
+        actions = ["cli (ubicloud-standard-2)", "cli (windows-latest)", "cli (macos-latest)", ...actions]
     }
 
+    const pluginsWithConfigUI = getPluginsWithConfigUI()
+    for (const action of actions) {
+        if (pluginsWithConfigUI.includes(action)) {
+            console.log(`Adding validate-config-ui to the list of required workflows for plugin ${action}`)
+            actions = [...actions, 'validate-config-ui']
+        }
+    }
+
+    const pluginsWithFipsVersion = getPluginsWithFipsVersion()
+    for (const action of actions) {
+        if (pluginsWithFipsVersion.includes(action)) {
+            console.log(`Adding validate-fips to the list of required workflows for plugin ${action}`)
+            actions = [...actions, 'validate-fips']
+        }
+    }
+
+    actions = [...new Set(actions)]
     pendingActions = [...actions]
     console.log(`Waiting for ${pendingActions.join(", ")}`)
     while (now <= deadline) {
@@ -58,7 +93,8 @@ module.exports = async ({github, context}) => {
         const runs = runsWithPossibleDuplicates.filter((run, index, self) => self.findIndex(({id}) => id === run.id) === index)
         console.log(`Got the following check runs: ${JSON.stringify(runs)}`)
         const matchingRuns = runs.filter(({name}) => actions.includes(name))
-        const failedRuns = matchingRuns.filter(({conclusion}) => conclusion !== 'success')
+        const allowedConclusions = ['success', 'skipped']
+        const failedRuns = matchingRuns.filter(({conclusion}) => !allowedConclusions.includes(conclusion))
         if (failedRuns.length > 0) {
             throw new Error(`The following required workflows failed: ${failedRuns.map(({name}) => name).join(", ")}`)
         }

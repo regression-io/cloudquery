@@ -4,13 +4,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	_ "embed"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/cloudquery/plugin-sdk/v4/configtype"
 	"github.com/invopop/jsonschema"
 	"github.com/meilisearch/meilisearch-go"
-	"github.com/valyala/fasthttp"
 )
 
 type Spec struct {
@@ -35,14 +34,14 @@ type Spec struct {
 
 	//  PEM-encoded certificate authorities.
 	//  When set, a certificate pool will be created by appending the certificates to the system pool.
-	//  See [file variable substitution](/docs/advanced-topics/environment-variable-substitution#file-variable-substitution-example) for how to read this value from a file.
+	//  See [file variable substitution](https://www.cloudquery.io/docs/cli/managing-cloudquery/environment-variables#file-variable-substitution-example) for how to read this value from a file.
 	CACert string `json:"ca_cert,omitempty"`
 
 	// Maximum amount of items that may be grouped together to be written in a single write.
-	BatchSize int `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
+	BatchSize int64 `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
 
 	// Maximum size of items that may be grouped together to be written in a single write.
-	BatchSizeBytes int `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
+	BatchSizeBytes int64 `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
 
 	// Timeout for writing a single batch.
 	BatchTimeout *configtype.Duration `json:"batch_timeout,omitempty"`
@@ -51,9 +50,9 @@ type Spec struct {
 func (s *Spec) validate() error {
 	switch {
 	case len(s.Host) == 0:
-		return fmt.Errorf("empty \"host\" value")
+		return errors.New("empty \"host\" value")
 	case len(s.APIKey) == 0:
-		return fmt.Errorf("empty \"api_key\" value")
+		return errors.New("empty \"api_key\" value")
 	default:
 		return nil
 	}
@@ -79,14 +78,11 @@ func (s *Spec) setDefaults() {
 	}
 }
 
-func (s *Spec) getClient() (*meilisearch.Client, error) {
-	config := meilisearch.ClientConfig{
-		Host:    s.Host,
-		APIKey:  s.APIKey,
-		Timeout: s.Timeout.Duration(),
-	}
+func (s *Spec) getClient() (meilisearch.ServiceManager, error) {
 	if len(s.CACert) == 0 {
-		return meilisearch.NewClient(config), nil
+		return meilisearch.New(s.Host,
+			meilisearch.WithAPIKey(s.APIKey),
+		), nil
 	}
 
 	// read file
@@ -96,18 +92,15 @@ func (s *Spec) getClient() (*meilisearch.Client, error) {
 	}
 
 	if ok := certPool.AppendCertsFromPEM([]byte(s.CACert)); !ok {
-		return nil, fmt.Errorf("failed to append \"ca_cert\" value")
+		return nil, errors.New("failed to append \"ca_cert\" value")
 	}
 
-	httpClient := &fasthttp.Client{
-		Name: "meilisearch-client-with-custom-tls",
-		// Reuse the most recently-used idle connection.
-		ConnPoolStrategy: fasthttp.LIFO,
-		// Add tls config
-		TLSConfig: &tls.Config{RootCAs: certPool},
-	}
+	tlsConfig := &tls.Config{RootCAs: certPool}
 
-	return meilisearch.NewFastHTTPCustomClient(config, httpClient), nil
+	return meilisearch.New(s.Host,
+		meilisearch.WithAPIKey(s.APIKey),
+		meilisearch.WithCustomClientWithTLS(tlsConfig),
+	), nil
 }
 
 //go:embed schema.json

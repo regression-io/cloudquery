@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,7 +10,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/cloudquery/cloudquery/cli/cmd"
+	"github.com/cloudquery/cloudquery/cli/v6/cmd"
 	"github.com/getsentry/sentry-go"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -25,15 +26,13 @@ func executeRootCmdWithContext() error {
 	}()
 	var gotSignal os.Signal
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		select {
 		case gotSignal = <-c:
 			cancel()
 		case <-ctx.Done():
 		}
-	}()
+	})
 
 	err := cmd.NewCmdRoot().ExecuteContext(ctx)
 	cancel()
@@ -62,7 +61,12 @@ func main() {
 
 	// This ensures we don't print anything until logging is configured
 	log.Logger = log.Level(zerolog.Disabled)
-	if err := executeRootCmdWithContext(); err != nil {
+	err := executeRootCmdWithContext()
+	var exitCodeErr *cmd.ExitCodeError
+	switch {
+	case errors.As(err, &exitCodeErr):
+		exitCode = exitCodeErr.Code
+	case err != nil:
 		log.Error().Err(err).Msg("exiting with error")
 		exitCode = 1
 	}

@@ -22,6 +22,10 @@ const (
 type Spec struct {
 	// Connection string to connect to the database.
 	// See [SDK documentation](https://github.com/microsoft/go-mssqldb#connection-parameters-and-dsn) for details.
+	//
+	// Example connection strings:
+	// - `"sqlserver://username:password@hostname/instance"` basic connection using a named instance
+	// - `"sqlserver://username:password@localhost?database=master&connection+timeout=30"` select "master" database and set connection timeout (default instance)
 	ConnectionString string `json:"connection_string" jsonschema:"required,minLength=1,example=${MSSQL_CONNECTION_STRING}"`
 
 	//  If you need to authenticate via Azure Active Directory ensure you specify `azure` value.
@@ -36,10 +40,10 @@ type Spec struct {
 	Schema string `json:"schema,omitempty" jsonschema:"default=dbo"`
 
 	// Maximum number of items that may be grouped together to be written in a single write.
-	BatchSize int `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
+	BatchSize int64 `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
 
 	// Maximum size of items that may be grouped together to be written in a single write.
-	BatchSizeBytes int `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=5242880"`
+	BatchSizeBytes int64 `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=5242880"`
 
 	// Timeout for writing a single batch.
 	BatchTimeout *configtype.Duration `json:"batch_timeout,omitempty"`

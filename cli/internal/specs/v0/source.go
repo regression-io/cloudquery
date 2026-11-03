@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/invopop/jsonschema"
 )
@@ -19,6 +20,17 @@ type BackendOptions struct {
 	Connection string `json:"connection,omitempty" jsonschema:"required,minLength=1"`
 }
 
+// PluginName returns the name of the plugin from the connection string variable.
+//
+// Note that `Connection` gets string replaced with the actual connection value during the sync
+// process, so calling this function will only work before the sync process starts.
+func (b *BackendOptions) PluginName() string {
+	if b == nil || !strings.HasPrefix(b.Connection, "@@plugins.") {
+		return ""
+	}
+	return strings.Split(b.Connection, ".")[1]
+}
+
 // Source plugin spec
 type Source struct {
 	Metadata
@@ -27,8 +39,9 @@ type Source struct {
 	Tables []string `json:"tables,omitempty" jsonschema:"required,minItems=1,minLength=1"`
 	// SkipTables defines tables to skip when syncing data. Useful if a glob pattern is used in Tables
 	SkipTables []string `json:"skip_tables,omitempty" jsonschema:"minLength=1"`
-	// SkipDependentTables changes the matching behavior with regard to dependent tables. If set to true, dependent tables will not be synced unless they are explicitly matched by Tables.
-	SkipDependentTables bool `json:"skip_dependent_tables,omitempty" jsonschema:"default=false"`
+	// SkipDependentTables changes the matching behavior with regard to dependent tables. If set to `false`, dependent tables will be included in the sync when their parents are matched, even if not explicitly included by the `tables` configuration.
+	SkipDependentTables *bool `json:"skip_dependent_tables,omitempty" jsonschema:"default=true"`
+
 	// Destinations are the names of destination plugins to send sync data to
 	Destinations []string `json:"destinations,omitempty" jsonschema:"required,minItems=1,minLength=1"`
 
@@ -53,9 +66,10 @@ type Source struct {
 func (s *Source) GetWarnings() Warnings {
 	warnings := make(map[string]string)
 
-	if s.SkipDependentTables && slices.Contains(s.Tables, "*") {
+	if s.SkipDependentTables != nil && *s.SkipDependentTables && slices.Contains(s.Tables, "*") {
 		warnings["skip_dependent_tables"] = "the `skip_dependent_tables` option is ineffective when used with '*' `tables`"
 	}
+
 	if slices.Contains(s.Tables, "*") && len(s.Tables) > 1 {
 		warnings["all_tables_with_more_tables"] = "`tables` option contains '*' as well as other tables. '*' will match all tables"
 	}
@@ -67,6 +81,10 @@ func (s *Source) SetDefaults() {
 	s.Metadata.SetDefaults()
 	if s.Spec == nil {
 		s.Spec = make(map[string]any)
+	}
+	if s.SkipDependentTables == nil {
+		b := true
+		s.SkipDependentTables = &b
 	}
 }
 
@@ -92,7 +110,7 @@ func (Source) JSONSchemaExtend(sc *jsonschema.Schema) {
 	Metadata{}.JSONSchemaExtend(sc) // have to call manually
 }
 
-func (s *Source) Validate() error {
+func (s *Source) Validate(relaxed bool) error {
 	if err := s.Metadata.Validate(); err != nil {
 		return err
 	}
@@ -101,7 +119,7 @@ func (s *Source) Validate() error {
 		return errors.New("tables configuration is required. Hint: set the tables you want to sync by adding `tables: [...]` or use `cloudquery tables` to list available tables")
 	}
 
-	if len(s.Destinations) == 0 {
+	if !relaxed && len(s.Destinations) == 0 {
 		return errors.New("at least one destination is required")
 	}
 

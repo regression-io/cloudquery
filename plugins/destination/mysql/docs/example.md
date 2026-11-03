@@ -28,7 +28,7 @@ Once you've completed the steps from previous sections you should be able to con
 root:password@/cloudquery
 ```
 
-The (top level) spec section is described in the [Destination Spec Reference](/docs/reference/destination-spec).
+The (top level) spec section is described in the [Destination Spec Reference](https://www.cloudquery.io/docs/cli/integrations/destinations#complete-destination-spec-reference).
 The full configuration for the MySQL destination plugin should look like this:
 
 ```yaml copy
@@ -38,11 +38,12 @@ spec:
   path: "cloudquery/mysql"
   registry: "cloudquery"
   version: "VERSION_DESTINATION_MYSQL"
+  send_sync_summary: true
 
   spec:
     connection_string: "root:password@/cloudquery"
 ```
 
 :::callout{type="info"}
-Make sure you use [environment variable expansion](/docs/advanced-topics/environment-variable-substitution) in production instead of committing the credentials to the configuration file directly.
+Make sure you use [environment variable expansion](https://www.cloudquery.io/docs/cli/managing-cloudquery/environment-variables) in production instead of committing the credentials to the configuration file directly.
 :::

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/cloudquery/cloudquery/plugins/source/test/client/spec",
+  "$id": "https://github.com/cloudquery/cloudquery/plugins/source/test/v4/client/spec",
   "$ref": "#/$defs/Spec",
   "$defs": {
     "Spec": {
@@ -59,6 +59,33 @@
               },
               "type": "array",
               "description": "Required environment variables. The plugin will fail if these are not set\nto the correct values. Specified in `key=value` format. Use `key=` to specify\nthat the environment variable should be not set or empty."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fail_immediately": {
+          "type": "boolean",
+          "description": "If true, the plugin will fail immediately at the table resolver level, before any resources are synced",
+          "default": false
+        },
+        "exit_immediately": {
+          "type": "boolean",
+          "description": "If true, the plugin will os.Exit(1) immediately at the table resolver level, before any resources are synced",
+          "default": false
+        },
+        "delete_records": {
+          "oneOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array",
+              "description": "If set, the plugin will send a request to delete the records with the given resource_id's in test_some_table (after syncing them).",
+              "default": [
+                "false"
+              ]
             },
             {
               "type": "null"

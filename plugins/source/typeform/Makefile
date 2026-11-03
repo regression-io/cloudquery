@@ -1,13 +1,13 @@
 current_dir=$(shell basename $(CURDIR))
 
 test:
-	pytest .
+	uv run pytest .
 
 fmt:
-	black .
+	uv run black .
 
 fmt-check:
-	black --check .
+	uv run black --check .
 
 build-docker:
 	docker build -t typeform:latest .
@@ -15,7 +15,7 @@ build-docker:
 gen-docs: build-docker
 	@command -v cloudquery >/dev/null 2>&1 || { \
 		echo "Error: 'cloudquery' command not found. Please install it before running gen-docs."; \
-		echo "You can install it by following the instructions at: https://www.cloudquery.io/docs/quickstart"; \
+		echo "You can install it by following the instructions at: https://www.cloudquery.io/docs/cli/getting-started"; \
 		exit 1; \
 	}
 	rm -rf ../../../website/pages/docs/plugins/sources/$(current_dir)/tables
@@ -29,3 +29,7 @@ gen-docs: build-docker
 	rm -rf ../../../website/pages/docs/plugins/sources/$(current_dir)/tables/*.bak
 
 gen: gen-docs
+
+coverage:
+	# TODO: Add coverage
+	exit 0

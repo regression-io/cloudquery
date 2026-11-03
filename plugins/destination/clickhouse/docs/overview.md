@@ -11,9 +11,9 @@ description: CloudQuery ClickHouse destination plugin documentation
 This destination plugin lets you sync data from a CloudQuery source to [ClickHouse](https://clickhouse.com/) database.
 
 It supports `append` write mode only.
-Write mode selection is required through [`write_mode`](/docs/reference/destination-spec#write_mode).
+Write mode selection is required through [`write_mode`](https://www.cloudquery.io/docs/cli/integrations/destinations#write_mode).
 
-Supported database versions: >= `22.1.2`
+Supported database versions: >= `24.8.1`
 
 ## Configuration
 
@@ -34,6 +34,10 @@ This is the (nested) spec used by the ClickHouse destination plugin.
   Connection string to connect to the database.
   See [SDK documentation](https://github.com/ClickHouse/clickhouse-go#dsn) for more details.
 
+  Example connection string:
+
+  - `"clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60"`
+
 - `cluster` (`string`) (optional) (default: not used)
 
   Cluster name to be used for [distributed DDL](https://clickhouse.com/docs/en/sql-reference/distributed-ddl).
@@ -44,7 +48,7 @@ This is the (nested) spec used by the ClickHouse destination plugin.
   PEM-encoded certificate authorities.
   When set, a certificate pool will be created by appending the certificates to the system pool.
 
-  See [file variable substitution](/docs/advanced-topics/environment-variable-substitution#file-variable-substitution-example)
+  See [file variable substitution](https://www.cloudquery.io/docs/cli/managing-cloudquery/environment-variables#file-variable-substitution-example)
   for how to read this value from a file.
 
 - `engine` (optional, [table engine settings](#clickhouse-table-engine). Default: `MergeTree` engine)
@@ -63,6 +67,14 @@ This is the (nested) spec used by the ClickHouse destination plugin.
 - `batch_timeout` (`duration`) (optional) (default: `20s`)
 
   Maximum interval between batch writes.
+
+- `partition` (optional, [partitioning](#partitioning)) (default: no partitioning)
+
+  Partitioning strategy to be used for tables (i.e. `PARTITION BY` clause in `CREATE TABLE` statements).
+
+- `order` (optional, [ordering](#ordering)) (default: use existing primary key)
+
+  Ordering strategy to be used for tables (i.e. `ORDER BY` clause in `CREATE TABLE` statements).
 
 #### ClickHouse table engine
 
@@ -86,6 +98,7 @@ spec:
   registry:   "cloudquery"
   version:    "VERSION_DESTINATION_CLICKHOUSE"
   write_mode: "append"
+  send_sync_summary: true
 
   spec:
     connection_string: "clickhouse://${CH_USER}:${CH_PASSWORD}@localhost:9000/${CH_DATABASE}"
@@ -94,6 +107,122 @@ spec:
       parameters:
       - "/clickhouse/tables/{shard}/{database}/{table}"
       - "{replica}"
+```
+
+#### Partitioning
+
+This option allows you to specify a partitioning strategy to be used for tables. It is an array of objects.
+
+Each object has the following fields:
+
+- `tables` (array of strings) (optional) (default: `["*"]`)
+
+  List of glob patterns to match table names against. Follows the same rules as the top-level spec `tables` option.
+
+  If a table matches both a pattern in `tables` and `skip_tables`, the table will be skipped.
+
+  Partition strategy table patterns should be disjointed sets: if a table matches two partition strategies, an error will be raised at runtime.
+
+- `skip_tables` (array of strings) (optional) (default: empty)
+
+  List of glob patterns to skip matching table names against. Follows the same rules as the top-level spec `skip_tables` option.
+
+  If a table matches both a pattern in `tables` and `skip_tables`, the table will be skipped.
+
+  Partition strategy table patterns should be disjointed sets: if a table matches two partition strategies, an error will be raised at runtime.
+
+- `skip_incremental_tables` (boolean) (optional) (default: `false`)
+
+  If set to `true`, incremental tables will not be partitioned by this strategy.
+
+- `partition_by` (string) (required)
+
+  Partitioning strategy to use, e.g. `toYYYYMM(_cq_sync_time)`, the string is passed as is after "PARTITION BY" clause with no validation or quoting.
+
+  An unset `partition_by` is not valid.
+
+Example:
+
+```yaml copy
+partition:
+- tables: ["*"]
+  skip_tables: ["special_partition_table", "non_partitioned_table"]
+  partition_by: "toYYYYMM(_cq_sync_time)"
+- tables: ["special_partition_table"]
+  partition_by: "toYYYYMMDD(_cq_sync_time)"
+```
+
+#### Ordering
+
+This option allows you to specify custom `ORDER BY` clauses for tables or groups of tables. It is an array of objects.
+
+Each object has the following fields:
+
+- `tables` (array of strings) (optional) (default: `["*"]`)
+
+  List of glob patterns to match table names against. Follows the same rules as the top-level spec `tables` option.
+
+  If a table matches both a pattern in `tables` and `skip_tables`, the table will be skipped.
+
+  Ordering strategy table patterns should be disjointed sets: if a table matches two ordering strategies, an error will be raised at runtime.
+
+- `skip_tables` (array of strings) (optional) (default: empty)
+
+  List of glob patterns to skip matching table names against. Follows the same rules as the top-level spec `skip_tables` option.
+
+  If a table matches both a pattern in `tables` and `skip_tables`, the table will be skipped.
+
+  Ordering strategy table patterns should be disjointed sets: if a table matches two ordering strategies, an error will be raised at runtime.
+
+- `order_by` (array of strings) (required)
+
+  Sort key to use, the strings are passed as is after "ORDER BY" clause with no validation or quoting.
+
+Example:
+
+```yaml copy
+order:
+- tables: ["aws_ec2_instances"]
+  order_by:
+  - "`account_id`"
+  - "`region`"
+  - "toYYYYMM(`_cq_sync_time`) DESC"
+  - "`_cq_id`"
+```
+
+#### Table TTLs
+
+This option allows you to specify a TTL strategy to be used for tables. It is an array of objects.
+
+Each object has the following fields:
+
+- `tables` (array of strings) (optional) (default: `["*"]`)
+
+  List of glob patterns to match table names against. Follows the same rules as the top-level spec `tables` option.
+
+  If a table matches both a pattern in `tables` and `skip_tables`, the table will be skipped.
+
+  TTL strategy table patterns should be disjointed sets: if a table matches two TTL strategies, an error will be raised at runtime.
+
+- `skip_tables` (array of strings) (optional) (default: empty)
+
+  List of glob patterns to skip matching table names against. Follows the same rules as the top-level spec `skip_tables` option.
+
+  If a table matches both a pattern in `tables` and `skip_tables`, the table will be skipped.
+
+  TTL strategy table patterns should be disjointed sets: if a table matches two TTL strategies, an error will be raised at runtime.
+
+- `ttl` (string) (required)
+
+  TTL interval to use, relative to _cq_sync_time. E.g. `INTERVAL 60 DAY`, the string is passed as-is after a "TTL _cq_sync_time + " clause with no validation or quoting.
+
+Example:
+
+```yaml copy
+ttl:
+- tables: ["*"]
+  skip_tables: ["no_ttl_table"]
+  ttl: "INTERVAL 60 DAY"
 ```
 
 ### Connecting to ClickHouse Cloud
@@ -124,6 +253,7 @@ spec:
   registry:   "cloudquery"
   version:    "VERSION_DESTINATION_CLICKHOUSE"
   write_mode: "append"
+  send_sync_summary: true
 
   spec:
     connection_string: "clickhouse://${CH_USER}:${CH_PASSWORD}@localhost:9000/${CH_DATABASE}?debug=true"

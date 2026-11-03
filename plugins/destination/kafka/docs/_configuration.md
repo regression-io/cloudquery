@@ -1,6 +1,6 @@
 This example configures connects to a Kafka destination using SASL plain authentication and pushes messages in JSON format.
 
-The (top level) spec section is described in the [Destination Spec Reference](/docs/reference/destination-spec).
+The (top level) spec section is described in the [Destination Spec Reference](https://www.cloudquery.io/docs/cli/integrations/destinations#complete-destination-spec-reference).
 
 ```yaml copy
 kind: destination
@@ -10,6 +10,7 @@ spec:
   registry: "cloudquery"
   version: "VERSION_DESTINATION_KAFKA"
   write_mode: "append"
+  send_sync_summary: true
   spec:
     # required - list of brokers to connect to
     brokers: ["<broker-host>:<broker-port>"]
@@ -18,15 +19,21 @@ spec:
     sasl_password: "${KAFKA_SASL_PASSWORD}"
     format: "json" # options: parquet, json, csv
     format_spec:
-      # CSV-specific parameters:
+      # CSV specific parameters:
       # delimiter: ","
       # skip_header: false
+      # Parquet specific parameters:
+      # version: "v2Latest"
+      # root_repetition: "repeated"
+      # max_row_group_length: 134217728 # 128 * 1024 * 1024
 
     # Optional parameters
     # compression: "" # options: gzip
-    # client_id: cq-destination-kafka
     # verbose: false
     # batch_size: 1000
+    # topic_details:
+      # num_partitions: 1
+      # replication_factor: 1
 ```
 
-Note that the Kafka plugin only supports `append` `write_mode`. The (top level) spec section is described in the [Destination Spec Reference](/docs/reference/destination-spec).
+Note that the Kafka plugin only supports `append` `write_mode`. The (top level) spec section is described in the [Destination Spec Reference](https://www.cloudquery.io/docs/cli/integrations/destinations#complete-destination-spec-reference).

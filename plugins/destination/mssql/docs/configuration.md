@@ -7,10 +7,10 @@
 :configuration
 
 :::callout{type="info"}
-Make sure you use [environment variable expansion](/docs/advanced-topics/environment-variable-substitution) in production instead of committing the credentials to the configuration file directly.
+Make sure you use [environment variable expansion](https://www.cloudquery.io/docs/cli/managing-cloudquery/environment-variables) in production instead of committing the credentials to the configuration file directly.
 :::
 
-The Microsoft SQL Server destination utilizes batching, and supports [`batch_size`](/docs/reference/destination-spec#batch_size) and [`batch_size_bytes`](/docs/reference/destination-spec#batch_size_bytes).
+The Microsoft SQL Server destination utilizes batching, and supports [`batch_size`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size) and [`batch_size_bytes`](https://www.cloudquery.io/docs/cli/integrations/destinations#batch_size_bytes).
 
 ## Microsoft SQL Server spec
 
@@ -20,6 +20,11 @@ This is the (nested) spec used by the Microsoft SQL Server destination plugin.
 
   Connection string to connect to the database.
   See [SDK documentation](https://github.com/microsoft/go-mssqldb#connection-parameters-and-dsn) for details.
+
+  Example connection strings:
+	- `"sqlserver://username:password@hostname/instance"` basic connection using a named instance
+	- `"sqlserver://username:password@localhost?database=master&connection+timeout=30"` select "master" database and set connection timeout (default instance)
+
 
 - `auth_mode` (`string`) (optional) (default: `ms`)
 
@@ -64,6 +69,7 @@ spec:
   path:     "cloudquery/mssql"
   registry:   "cloudquery"
   version:  "VERSION_DESTINATION_MSSQL"
+  send_sync_summary: true
 
   spec:
     connection_string: "${MSSQL_CONNECTION_STRING};log=255"

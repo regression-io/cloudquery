@@ -8,10 +8,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	gosync "sync"
 	"testing"
 
-	"github.com/cloudquery/cloudquery/cli/internal/hub"
+	cloudquery_api "github.com/cloudquery/cloudquery-api-go"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/hub"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPluginPublish(t *testing.T) {
@@ -59,32 +63,39 @@ func TestPluginPublish(t *testing.T) {
 				case "/plugins/cloudquery/source/test/versions/v1.2.3":
 					checkAuthHeader(t, r)
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte(`{"name": "v1.2.3"}`))
+					_, err := w.Write([]byte(`{"name": "v1.2.3"}`))
+					require.NoError(t, err)
 					checkCreatePluginVersionRequest(t, r)
 				case "/plugins/cloudquery/source/test/versions/v1.2.3/tables":
 					checkAuthHeader(t, r)
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte(`{}`))
+					_, err := w.Write([]byte(`{}`))
+					require.NoError(t, err)
 					checkCreateTablesRequest(t, r)
 				case "/plugins/cloudquery/source/test/versions/v1.2.3/docs":
 					checkAuthHeader(t, r)
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte(`{}`))
+					_, err := w.Write([]byte(`{}`))
+					require.NoError(t, err)
 					checkCreateDocsRequest(t, r, tc.distDir)
 				case "/plugins/cloudquery/source/test/versions/v1.2.3/assets/linux_amd64":
 					checkAuthHeader(t, r)
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-linux")))
+					_, err := w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-linux")))
+					require.NoError(t, err)
 				case "/plugins/cloudquery/source/test/versions/v1.2.3/assets/darwin_amd64":
 					checkAuthHeader(t, r)
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-darwin")))
+					_, err := w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-darwin")))
+					require.NoError(t, err)
 				case "/upload-linux":
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{}`))
+					_, err := w.Write([]byte(`{}`))
+					require.NoError(t, err)
 				case "/upload-darwin":
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{}`))
+					_, err := w.Write([]byte(`{}`))
+					require.NoError(t, err)
 				}
 			}))
 			defer ts.Close()
@@ -136,32 +147,39 @@ func TestPluginPublishFinalize(t *testing.T) {
 				checkCreatePluginVersionRequest(t, r)
 				w.WriteHeader(http.StatusCreated)
 			}
-			w.Write([]byte(`{"name": "v1.2.3"}`))
+			_, err := w.Write([]byte(`{"name": "v1.2.3"}`))
+			require.NoError(t, err)
 		case "/plugins/cloudquery/source/test/versions/v1.2.3/tables":
 			checkAuthHeader(t, r)
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(`{}`))
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
 			checkCreateTablesRequest(t, r)
 		case "/plugins/cloudquery/source/test/versions/v1.2.3/docs":
 			checkAuthHeader(t, r)
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(`{}`))
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
 			checkCreateDocsRequest(t, r, "testdata/dist-v1-with-team-package-json")
 		case "/plugins/cloudquery/source/test/versions/v1.2.3/assets/linux_amd64":
 			checkAuthHeader(t, r)
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-linux")))
+			_, err := w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-linux")))
+			require.NoError(t, err)
 		case "/plugins/cloudquery/source/test/versions/v1.2.3/assets/darwin_amd64":
 			checkAuthHeader(t, r)
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-darwin")))
+			_, err := w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-darwin")))
+			require.NoError(t, err)
 		case "/upload-linux":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
 			gotUploads++
 		case "/upload-darwin":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
 			gotUploads++
 		}
 	}))
@@ -181,13 +199,140 @@ func TestPluginPublishFinalize(t *testing.T) {
 	}
 }
 
+func TestPluginPublishWithUI(t *testing.T) {
+	const distDir = "testdata/dist-v1-with-team-package-json"
+
+	t.Setenv("CLOUDQUERY_API_KEY", "testkey")
+	wantCalls := map[string]int{
+		"PUT /plugins/cloudquery/source/test/versions/v1.2.3":                      1,
+		"PUT /plugins/cloudquery/source/test/versions/v1.2.3/tables":               1,
+		"POST /plugins/cloudquery/source/test/versions/v1.2.3/docs":                1,
+		"POST /plugins/cloudquery/source/test/versions/v1.2.3/assets/linux_amd64":  1,
+		"POST /plugins/cloudquery/source/test/versions/v1.2.3/assets/darwin_amd64": 1,
+		"PUT /upload-linux":   1,
+		"PUT /upload-darwin":  1,
+		"PUT /upload-uiasset": 3,
+		"POST /plugins/cloudquery/source/test/versions/v1.2.3/uiassets": 1,
+		"PUT /plugins/cloudquery/source/test/versions/v1.2.3/uiassets":  1,
+	}
+	gotCalls := map[string]int{}
+	mu := &gosync.Mutex{}
+	uiID := ""
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		mu.Lock()
+		gotCalls[r.Method+" "+r.URL.Path]++
+		mu.Unlock()
+		// t.Log(r.Method, r.URL.Path)
+		switch r.URL.Path {
+		case "/plugins/cloudquery/source/test/versions/v1.2.3":
+			checkAuthHeader(t, r)
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"name": "v1.2.3"}`))
+			require.NoError(t, err)
+			checkCreatePluginVersionRequest(t, r)
+		case "/plugins/cloudquery/source/test/versions/v1.2.3/tables":
+			checkAuthHeader(t, r)
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+			checkCreateTablesRequest(t, r)
+		case "/plugins/cloudquery/source/test/versions/v1.2.3/docs":
+			checkAuthHeader(t, r)
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+			checkCreateDocsRequest(t, r, distDir)
+		case "/plugins/cloudquery/source/test/versions/v1.2.3/assets/linux_amd64":
+			checkAuthHeader(t, r)
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-linux")))
+			require.NoError(t, err)
+		case "/plugins/cloudquery/source/test/versions/v1.2.3/assets/darwin_amd64":
+			checkAuthHeader(t, r)
+			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(fmt.Sprintf(`{"url": "%s"}`, "http://"+r.Host+"/upload-darwin")))
+			require.NoError(t, err)
+		case "/upload-linux":
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+		case "/upload-darwin":
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+		case "/upload-uiasset":
+			w.WriteHeader(http.StatusOK)
+			_, err := w.Write([]byte(`{}`))
+			require.NoError(t, err)
+		case "/plugins/cloudquery/source/test/versions/v1.2.3/uiassets":
+			checkAuthHeader(t, r)
+			switch r.Method {
+			case http.MethodPost:
+				uiID = uuid.NewString()
+
+				resp := cloudquery_api.UploadPluginUIAssets201Response{UIID: uiID}
+				var rq cloudquery_api.UploadPluginUIAssetsRequest
+				if err := json.NewDecoder(r.Body).Decode(&rq); err != nil {
+					t.Fatal(err)
+				}
+				if len(rq.Assets) != 3 {
+					t.Fatalf("expected 3 assets, got %d", len(rq.Assets))
+				}
+				for _, a := range rq.Assets {
+					if a.Name != "index.html" && a.Name != "static/style.css" && a.Name != "bundle.tar.gz" {
+						t.Fatalf("unexpected asset name %q", a.Name)
+					}
+					resp.Assets = append(resp.Assets, cloudquery_api.PluginUIAsset{
+						Name:      a.Name,
+						UploadURL: "http://" + r.Host + "/upload-uiasset",
+					})
+				}
+
+				w.WriteHeader(http.StatusCreated)
+				if err := json.NewEncoder(w).Encode(resp); err != nil {
+					t.Fatal(err)
+				}
+			case http.MethodPut:
+				var rq cloudquery_api.FinalizePluginUIAssetUploadRequest
+				if err := json.NewDecoder(r.Body).Decode(&rq); err != nil {
+					t.Fatal(err)
+				}
+				if rq.UIID != uiID || rq.UIID == "" {
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					t.Fatalf("unexpected UIID %q", rq.UIID)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				w.WriteHeader(http.StatusNotAcceptable)
+			}
+		}
+	}))
+	defer ts.Close()
+
+	cmd := NewCmdRoot()
+	t.Setenv(envAPIURL, ts.URL)
+	//nolint:prealloc
+	allArgs := []string{"plugin", "publish", "--dist-dir", "testdata/dist-v1-with-team-package-json", "--ui-dir", "testdata/ui-build"}
+	allArgs = append(allArgs, testCommandArgs(t)...)
+	cmd.SetArgs(allArgs)
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(wantCalls, gotCalls); diff != "" {
+		t.Fatalf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestPluginPublish_Unauthorized(t *testing.T) {
 	t.Setenv("CLOUDQUERY_API_KEY", "badkey")
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message": "unauthorized"}`))
+		_, err := w.Write([]byte(`{"message": "unauthorized"}`))
+		require.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -376,4 +521,38 @@ func readFile(name string) string {
 		panic(err)
 	}
 	return hub.NormalizeContent(string(b))
+}
+
+func TestPluginPublishMissingPluginName(t *testing.T) {
+	type testCase struct {
+		name    string
+		distDir string
+	}
+
+	var testCases = []testCase{
+		{
+			name:    "package json with empty team and name",
+			distDir: "testdata/dist-v1-empty-team-and-name-package-json",
+		},
+		{
+			name:    "package json with empty team",
+			distDir: "testdata/dist-v1-no-team-package-json",
+		},
+		{
+			name:    "package json with empty name",
+			distDir: "testdata/dist-v1-no-name-package-json",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("CLOUDQUERY_API_KEY", "testkey")
+
+			cmd := NewCmdRoot()
+			args := append([]string{"plugin", "publish", "--dist-dir", tc.distDir}, testCommandArgs(t)...)
+			cmd.SetArgs(args)
+			err := cmd.Execute()
+			require.ErrorIs(t, err, errInvalidPluginName)
+		})
+	}
 }

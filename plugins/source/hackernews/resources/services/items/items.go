@@ -3,8 +3,8 @@ package items
 import (
 	"reflect"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/cloudquery/cloudquery/plugins/source/hackernews/client"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/cloudquery/cloudquery/plugins/source/hackernews/v3/client"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/cloudquery/plugin-sdk/v4/transformers"
 	"github.com/hermanschaaf/hackernews"

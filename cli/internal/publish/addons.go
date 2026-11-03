@@ -10,16 +10,12 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	cloudquery_api "github.com/cloudquery/cloudquery-api-go"
-	cqapiauth "github.com/cloudquery/cloudquery-api-go/auth"
-	"github.com/cloudquery/cloudquery-api-go/config"
-	"github.com/cloudquery/cloudquery/cli/internal/hub"
-	"github.com/cloudquery/cloudquery/cli/internal/publish/images"
-	"github.com/cloudquery/cloudquery/cli/internal/team"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/hub"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/publish/images"
 )
 
 type ManifestJSONV1 struct {
@@ -146,35 +142,6 @@ func UploadAddon(ctx context.Context, c *cloudquery_api.ClientWithResponses, man
 	return nil
 }
 
-func GetTeamForAnyToken(ctx context.Context, c *cloudquery_api.ClientWithResponses, tokenType cqapiauth.TokenType) (string, error) {
-	switch tokenType {
-	case cqapiauth.BearerToken:
-		currentTeam, err := config.GetValue("team")
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("failed to get team from config: %w", err)
-		}
-		if currentTeam == "" {
-			return "", errors.New("team is required. Hint: use `cloudquery switch` to set a team")
-		}
-		return currentTeam, nil
-	case cqapiauth.APIKey:
-		teams, err := team.NewClientFromAPI(c).ListAllTeams(ctx)
-		if err != nil {
-			return "", err
-		}
-		switch l := len(teams); l {
-		case 0:
-			return "", errors.New("api key has no assigned team")
-		case 1:
-			return teams[0], nil
-		default:
-			return "", fmt.Errorf("api key has more than one team: %s", strings.Join(teams, ", "))
-		}
-	default:
-		return "", fmt.Errorf("unknown token type %v", tokenType)
-	}
-}
-
 func GetAddonMetadata(ctx context.Context, c *cloudquery_api.ClientWithResponses, currentTeam, addonTeam, addonType, addonName, addonVersion string) (location, checksum string, retErr error) {
 	aj := "application/json"
 	resp, err := c.DownloadAddonAssetByTeamWithResponse(ctx, currentTeam, addonTeam, cloudquery_api.AddonType(addonType), addonName, addonVersion, &cloudquery_api.DownloadAddonAssetByTeamParams{Accept: &aj})
@@ -187,18 +154,17 @@ func GetAddonMetadata(ctx context.Context, c *cloudquery_api.ClientWithResponses
 	return resp.JSON200.Location, resp.JSON200.Checksum, nil
 }
 
-func DownloadAddonFromResponse(res *http.Response, expectedChecksum, targetDir string) (retErr error) {
+func DownloadAddonFromResponse(res *http.Response, expectedChecksum, zipPath string) (retErr error) {
 	var (
 		fileWriter io.WriteCloser
 		size       int64
 		err        error
 	)
 
-	switch targetDir {
+	switch zipPath {
 	case "-":
 		fileWriter = os.Stdout
 	default:
-		zipPath := filepath.Join(targetDir, path.Base(res.Request.URL.Path))
 		if st, err := os.Stat(zipPath); err == nil {
 			if st.IsDir() {
 				return fmt.Errorf("file %s already exists: is a directory", zipPath)

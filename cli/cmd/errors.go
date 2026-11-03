@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cloudquery/plugin-pb-go/pb/plugin/v3"
 	"google.golang.org/grpc/status"
 )
 
-func handleSendError(err error, client plugin.Plugin_WriteClient, msgType string) error {
+func handleSendError(err error, client writeClient, msgType string) error {
 	if err == io.EOF {
 		// we need to get back the original error
 		if _, err := client.CloseAndRecv(); err != nil {
@@ -19,4 +18,12 @@ func handleSendError(err error, client plugin.Plugin_WriteClient, msgType string
 		}
 	}
 	return fmt.Errorf("failed to send write request (%v): %w", msgType, err)
+}
+
+type ExitCodeError struct {
+	Code int
+}
+
+func (e *ExitCodeError) Error() string {
+	return fmt.Sprintf("exit code %d", e.Code)
 }

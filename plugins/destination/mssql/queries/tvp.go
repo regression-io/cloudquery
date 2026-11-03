@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"reflect"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	mssql "github.com/microsoft/go-mssqldb"
 )
@@ -68,7 +68,7 @@ func TVPAddType(schemaName string, table *schema.Table) string {
 	return execTemplate("tvp_add_type.sql.tpl", data)
 }
 
-func TVPQuery(schemaName string, table *schema.Table, records []arrow.Record) (query string, params []any, err error) {
+func TVPQuery(schemaName string, table *schema.Table, records []arrow.RecordBatch) (query string, params []any, err error) {
 	rows, err := GetRows(array.NewTableFromRecords(table.ToArrowSchema(), records))
 	if err != nil {
 		return "", nil, err

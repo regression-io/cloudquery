@@ -3,6 +3,7 @@ package specs
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -12,24 +13,32 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/cloudquery/plugin-sdk/v4/configtype"
 	"github.com/ghodss/yaml"
 	"github.com/rs/zerolog/log"
 )
 
 type SpecReader struct {
+	relaxed bool
+
 	sourcesMap      map[string]*Source
 	destinationsMap map[string]*Destination
+	transformersMap map[string]*Transformer
 
 	sourceWarningsMap      map[string]Warnings
 	destinationWarningsMap map[string]Warnings
+	transformerWarningsMap map[string]Warnings
 
 	Sources      []*Source
 	Destinations []*Destination
+	Transformers []*Transformer
 }
 
 var fileRegex = regexp.MustCompile(`\$\{file:([^}]+)\}`)
 var envRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
+var timeRegex = regexp.MustCompile(`\$\{time:([^}]+)\}`)
 
 func expandFileConfig(cfg []byte) ([]byte, error) {
 	var expandErr error
@@ -40,7 +49,7 @@ func expandFileConfig(cfg []byte) ([]byte, error) {
 			expandErr = err
 			return nil
 		}
-		if bytes.ContainsAny(content, "\n\r") && json.Valid(content) {
+		if shouldEscapeFileContent(content) {
 			// Values that should be treated as strings in YAML have leading and trailing quotes already
 			// so we remove the one added by strconv.Quote
 			quoted := strconv.Quote(string(content))
@@ -67,6 +76,26 @@ func expandEnv(cfg []byte) ([]byte, error) {
 	return cfg, expandErr
 }
 
+func expandTime(cfg []byte) ([]byte, error) {
+	var expandErr error
+	cfg = timeRegex.ReplaceAllFunc(cfg, func(match []byte) []byte {
+		relativeTime := timeRegex.FindSubmatch(match)[1]
+		splitString := strings.Split(string(relativeTime), "|")
+		relativeTimeString := splitString[0]
+		timeFormat := time.RFC3339
+		if len(splitString) > 1 {
+			timeFormat = splitString[1]
+		}
+		parsedTime, err := configtype.ParseTime(relativeTimeString)
+		if err != nil {
+			expandErr = errors.Join(errors.New("failed to substitute time"), err)
+			return nil
+		}
+		return []byte(parsedTime.AsTime(time.Now()).Format(timeFormat))
+	})
+	return cfg, expandErr
+}
+
 func (r *SpecReader) loadSpecsFromFile(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -87,6 +116,10 @@ func (r *SpecReader) loadSpecsFromFile(path string) error {
 		if err != nil {
 			return fmt.Errorf("failed to expand file variable in file %s (section %d): %w", path, i+1, err)
 		}
+		doc, err = expandTime(doc)
+		if err != nil {
+			return fmt.Errorf("failed to expand time variable in file %s (section %d): %w", path, i+1, err)
+		}
 		doc, err = expandEnv(doc)
 		if err != nil {
 			return fmt.Errorf("failed to expand environment variable in file %s (section %d): %w", path, i+1, err)
@@ -103,7 +136,7 @@ func (r *SpecReader) loadSpecsFromFile(path string) error {
 			}
 			r.sourceWarningsMap[source.Name] = source.GetWarnings()
 			source.SetDefaults()
-			if err := source.Validate(); err != nil {
+			if err := source.Validate(r.relaxed); err != nil {
 				return fmt.Errorf("failed to validate source %s: %w", source.Name, err)
 			}
 			if source.Registry == RegistryGitHub {
@@ -132,6 +165,24 @@ func (r *SpecReader) loadSpecsFromFile(path string) error {
 			}
 			r.destinationsMap[destination.Name] = destination
 			r.Destinations = append(r.Destinations, destination)
+		case KindTransformer:
+			transformer := s.Spec.(*Transformer)
+			if r.transformersMap[transformer.Name] != nil {
+				return fmt.Errorf("duplicate transformer name %s", transformer.Name)
+			}
+			r.transformerWarningsMap[transformer.Name] = transformer.GetWarnings()
+			transformer.SetDefaults()
+			if err := transformer.Validate(); err != nil {
+				return fmt.Errorf("failed to validate transformer %s: %w", transformer.Name, err)
+			}
+			if transformer.Registry == RegistryGitHub {
+				log.Warn().
+					Str("name", transformer.Name).
+					Str("kind", "transformer").
+					Msg("registry: github is deprecated & will be removed in future releases")
+			}
+			r.transformersMap[transformer.Name] = transformer
+			r.Transformers = append(r.Transformers, transformer)
 		default:
 			return fmt.Errorf("unknown kind %s", s.Kind)
 		}
@@ -184,6 +235,26 @@ func (r *SpecReader) validate() error {
 		if destination.SyncGroupId != "" && destination.WriteMode == WriteModeOverwriteDeleteStale {
 			err = errors.Join(err, fmt.Errorf("destination %s: sync_group_id is not supported with write_mode: %s", destination.Name, destination.WriteMode))
 		}
+		for _, transformer := range destination.Transformers {
+			if r.transformersMap[transformer] == nil {
+				err = errors.Join(err, fmt.Errorf("destination %s references unknown transformer %s", destination.Name, transformer))
+			}
+		}
+	}
+
+	return err
+}
+
+func (r *SpecReader) relaxedValidate() error {
+	if len(r.Sources) == 0 && len(r.Destinations) == 0 {
+		return errors.New("expecting at least one source or destination")
+	}
+
+	var err error
+	for _, destination := range r.Destinations {
+		if destination.SyncGroupId != "" && destination.WriteMode == WriteModeOverwriteDeleteStale {
+			err = errors.Join(err, fmt.Errorf("destination %s: sync_group_id is not supported with write_mode: %s", destination.Name, destination.WriteMode))
+		}
 	}
 
 	return err
@@ -205,6 +276,10 @@ func (r *SpecReader) GetDestinationWarningsByName(name string) Warnings {
 	return r.destinationWarningsMap[name]
 }
 
+func (r *SpecReader) GetTransformerWarningsByName(name string) Warnings {
+	return r.transformerWarningsMap[name]
+}
+
 func (r *SpecReader) GetDestinationNamesForSource(name string) []string {
 	var destinations []string
 	source := r.sourcesMap[name]
@@ -217,34 +292,9 @@ func (r *SpecReader) GetDestinationNamesForSource(name string) []string {
 }
 
 func NewSpecReader(paths []string) (*SpecReader, error) {
-	reader := &SpecReader{
-		sourcesMap:             make(map[string]*Source),
-		destinationsMap:        make(map[string]*Destination),
-		Sources:                make([]*Source, 0),
-		Destinations:           make([]*Destination, 0),
-		sourceWarningsMap:      make(map[string]Warnings),
-		destinationWarningsMap: make(map[string]Warnings),
-	}
-	for _, path := range paths {
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		fileInfo, err := file.Stat()
-		if err != nil {
-			file.Close()
-			return nil, err
-		}
-		file.Close()
-		if fileInfo.IsDir() {
-			if err := reader.loadSpecsFromDir(path); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := reader.loadSpecsFromFile(path); err != nil {
-				return nil, err
-			}
-		}
+	reader := newSpecReader()
+	if err := reader.initialize(paths); err != nil {
+		return nil, err
 	}
 
 	if err := reader.validate(); err != nil {
@@ -252,6 +302,90 @@ func NewSpecReader(paths []string) (*SpecReader, error) {
 	}
 
 	return reader, nil
+}
+
+// NewSpecReaderWithoutValidation reads and parses specs without enforcing that
+// every source has a destination (or that any destination exists at all). The
+// caller is responsible for calling Validate once destinations are finalized —
+// e.g. after the platform destination has had a chance to be auto-injected.
+func NewSpecReaderWithoutValidation(paths []string) (*SpecReader, error) {
+	reader := newSpecReader()
+	reader.relaxed = true
+	if err := reader.initialize(paths); err != nil {
+		return nil, err
+	}
+	return reader, nil
+}
+
+// SetDestinationsAndValidate replaces the reader's destinations and runs the
+// full (non-relaxed) validation, including the per-source requirement that at
+// least one destination is configured. Setting and validating are coupled so
+// destinations cannot be swapped in after reading without being validated.
+func (r *SpecReader) SetDestinationsAndValidate(destinations []*Destination) error {
+	r.Destinations = destinations
+	r.destinationsMap = make(map[string]*Destination, len(destinations))
+	for _, d := range destinations {
+		r.destinationsMap[d.Name] = d
+	}
+	for _, source := range r.Sources {
+		if err := source.Validate(false); err != nil {
+			return fmt.Errorf("failed to validate source %s: %w", source.Name, err)
+		}
+	}
+	return r.validate()
+}
+
+func NewRelaxedSpecReader(paths []string) (*SpecReader, error) {
+	reader := newSpecReader()
+	reader.relaxed = true
+	if err := reader.initialize(paths); err != nil {
+		return nil, err
+	}
+	if err := reader.relaxedValidate(); err != nil {
+		return nil, err
+	}
+
+	return reader, nil
+}
+
+func newSpecReader() *SpecReader {
+	return &SpecReader{
+		sourcesMap:             make(map[string]*Source),
+		destinationsMap:        make(map[string]*Destination),
+		transformersMap:        make(map[string]*Transformer),
+		Sources:                make([]*Source, 0),
+		Destinations:           make([]*Destination, 0),
+		Transformers:           make([]*Transformer, 0),
+		sourceWarningsMap:      make(map[string]Warnings),
+		destinationWarningsMap: make(map[string]Warnings),
+		transformerWarningsMap: make(map[string]Warnings),
+	}
+}
+
+func (r *SpecReader) initialize(paths []string) error {
+	for _, path := range paths {
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		fileInfo, err := file.Stat()
+		if err != nil {
+			file.Close()
+			return err
+		}
+		file.Close()
+		if fileInfo.IsDir() {
+			if err := r.loadSpecsFromDir(path); err != nil {
+				return err
+			}
+		} else {
+			if err := r.loadSpecsFromFile(path); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // strip yaml comments from the given yaml document by converting to JSON and back :)
@@ -286,4 +420,18 @@ func stripYamlComments(b []byte) ([]byte, error) {
 		b = bytes.ReplaceAll(b, []byte(k), []byte(fmt.Sprintf("${%s}", v)))
 	}
 	return b, nil
+}
+
+func shouldEscapeFileContent(content []byte) bool {
+	if !bytes.ContainsAny(content, "\n\r") {
+		return false
+	}
+	if json.Valid(content) {
+		return true
+	}
+	block, _ := pem.Decode(content)
+
+	// if block == nil then content is a valid PEM block and should return true
+	// if block != nil then content is not a valid PEM block and should return false
+	return block != nil
 }

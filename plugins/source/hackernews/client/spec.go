@@ -3,14 +3,17 @@ package client
 import (
 	_ "embed"
 	"fmt"
-	"time"
+
+	"github.com/cloudquery/plugin-sdk/v4/configtype"
 )
 
 type Spec struct {
 	// The number of items to fetch concurrently
-	ItemConcurrency int `json:"item_concurrency" jsonschema:"minimum=1,default=100"`
-	// RFC3339 formatted timestamp. Syncing will begin with posts after this date. If not specified, the plugin will fetch all items.
-	StartTime string `json:"start_time" jsonschema:"format=date-time"`
+	ItemConcurrency int `json:"item_concurrency" jsonschema:"minimum=1,maximum=1000,default=100"`
+	// RFC3339 formatted timestamp. Syncing will begin with posts after this date.
+	// Relative values like "3 days ago" are also supported.
+	// If not specified, the plugin will default to 24 hours ago.
+	StartTime configtype.Time `json:"start_time" jsonschema:"format=date-time"`
 }
 
 type Backend struct {
@@ -23,14 +26,15 @@ func (s *Spec) SetDefaults() {
 		// Default to loading 100 concurrent items
 		s.ItemConcurrency = 100
 	}
+	if s.StartTime.IsZero() {
+		// Default to 24 hours ago
+		s.StartTime, _ = configtype.ParseTime("24 hours ago")
+	}
 }
 
 func (s *Spec) Validate() error {
-	if s.StartTime != "" {
-		_, err := time.Parse(time.RFC3339, s.StartTime)
-		if err != nil {
-			return fmt.Errorf("could not parse start_time: %v", err)
-		}
+	if s.ItemConcurrency > 1000 {
+		return fmt.Errorf("item_concurrency must be at most 1000, got %d", s.ItemConcurrency)
 	}
 	return nil
 }

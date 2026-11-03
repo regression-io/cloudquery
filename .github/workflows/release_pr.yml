@@ -8,12 +8,23 @@ concurrency:
   group: release-please-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   release-pr:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/release-please-action@v4
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.CQ_APP_ID }}
+          private-key: ${{ secrets.CQ_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         id: release
         with:
-          token: ${{ secrets.GH_CQ_BOT }}
+          token: ${{ steps.app-token.outputs.token }}

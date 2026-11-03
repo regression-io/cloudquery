@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 
 	cloudquery_api "github.com/cloudquery/cloudquery-api-go"
-	"github.com/cloudquery/cloudquery/cli/internal/api"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/api"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/hub"
 )
+
+type Team = cloudquery_api.Team
 
 type Client struct {
 	api *cloudquery_api.ClientWithResponses
@@ -34,22 +36,29 @@ func NewClientFromAPI(apiClient *cloudquery_api.ClientWithResponses) *Client {
 func (c *Client) ValidateTeam(ctx context.Context, name string) error {
 	teams, err := c.ListAllTeams(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list teams: %w", err)
 	}
-	return c.ValidateTeamAgainstTeams(name, teams)
+	_, err = c.FindTeam(teams, name)
+	return err
 }
 
-func (*Client) ValidateTeamAgainstTeams(name string, teams []string) error {
-	if slices.Contains(teams, name) {
-		return nil
+func (*Client) FindTeam(teams []Team, name string) (*Team, error) {
+	for _, t := range teams {
+		if t.Name == name {
+			return &t, nil
+		}
 	}
-	return fmt.Errorf("team %q not found. Teams available to you: %v", name, strings.Join(teams, ", "))
+	teamNames := make([]string, 0, len(teams))
+	for _, t := range teams {
+		teamNames = append(teamNames, t.Name)
+	}
+	return nil, fmt.Errorf("team %q not found. Teams available to you: %v", name, strings.Join(teamNames, ", "))
 }
 
-func (c *Client) ListAllTeams(ctx context.Context) ([]string, error) {
+func (c *Client) ListAllTeams(ctx context.Context) ([]Team, error) {
 	page := cloudquery_api.Page(1)
 	perPage := cloudquery_api.PerPage(100)
-	teams := make([]string, 0)
+	teams := make([]Team, 0)
 	for {
 		resp, err := c.api.ListTeamsWithResponse(ctx, &cloudquery_api.ListTeamsParams{
 			PerPage: &perPage,
@@ -59,15 +68,46 @@ func (c *Client) ListAllTeams(ctx context.Context) ([]string, error) {
 			return nil, err
 		}
 		if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
-			return nil, fmt.Errorf("failed to list teams: %s", resp.Status())
+			return nil, hub.ErrorFromHTTPResponse(resp.HTTPResponse, resp)
 		}
-		for _, team := range resp.JSON200.Items {
-			teams = append(teams, team.Name)
-		}
+		teams = append(teams, resp.JSON200.Items...)
 		if resp.JSON200.Metadata.LastPage == nil || *resp.JSON200.Metadata.LastPage <= int(page) {
 			break
 		}
 		page++
 	}
 	return teams, nil
+}
+
+func (c *Client) ListAllTeamNames(ctx context.Context) ([]string, error) {
+	teams, err := c.ListAllTeams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(teams))
+	for _, t := range teams {
+		names = append(names, t.Name)
+	}
+	return names, nil
+}
+
+func (c *Client) GetTeam(ctx context.Context, team string) (*Team, error) {
+	resp, err := c.api.GetTeamByNameWithResponse(ctx, team)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		return nil, fmt.Errorf("failed to get team %q: %w", team, hub.ErrorFromHTTPResponse(resp.HTTPResponse, resp))
+	}
+
+	return resp.JSON200, nil
+}
+
+func Names(teams []Team) []string {
+	names := make([]string, len(teams))
+	for i, t := range teams {
+		names[i] = t.Name
+	}
+	return names
 }

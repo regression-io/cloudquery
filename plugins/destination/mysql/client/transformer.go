@@ -1,8 +1,8 @@
 package client
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/cloudquery/plugin-sdk/v4/types"
 )
 
@@ -62,7 +62,7 @@ func getValue(arr arrow.Array, i int) (any, error) {
 	}
 }
 
-func transformRecord(record arrow.Record) ([][]any, error) {
+func transformRecord(record arrow.RecordBatch) ([][]any, error) {
 	res := make([][]any, record.NumRows())
 	var err error
 	for i := int64(0); i < record.NumRows(); i++ {

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/cloudquery/cloudquery/plugins/destination/mssql/queries"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/cloudquery/cloudquery/plugins/destination/mssql/v5/queries"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
 
@@ -44,7 +44,7 @@ func (c *Client) ensureTVP(ctx context.Context, table *schema.Table) (err error)
 	return nil
 }
 
-func (c *Client) insertTVP(ctx context.Context, table *schema.Table, records []arrow.Record) error {
+func (c *Client) insertTVP(ctx context.Context, table *schema.Table, records []arrow.RecordBatch) error {
 	query, params, err := queries.TVPQuery(c.spec.Schema, table, records)
 	if err != nil {
 		return err

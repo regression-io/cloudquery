@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 )
 
@@ -40,7 +40,7 @@ func (*Client) createResultsArray(table *arrow.Schema) []any {
 	return results
 }
 
-func reverseTransform(sc *arrow.Schema, values []any) (arrow.Record, error) {
+func reverseTransform(sc *arrow.Schema, values []any) (arrow.RecordBatch, error) {
 	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
 	for i, val := range values {
 		switch sc.Field(i).Type.ID() {
@@ -138,17 +138,17 @@ func reverseTransform(sc *arrow.Schema, values []any) (arrow.Record, error) {
 			if !v.Valid {
 				bldr.Field(i).AppendNull()
 			} else {
-				if err := bldr.Field(i).AppendValueFromString(val.(*sql.NullString).String); err != nil {
+				if err := appendFromString(bldr.Field(i), val.(*sql.NullString).String); err != nil {
 					return nil, fmt.Errorf("failed to AppendValueFromString %s. field: %v. name: %s err: %w", *val.(*string), bldr.Field(i).Type(), sc.Fields()[i].Name, err)
 				}
 			}
 		}
 	}
-	rec := bldr.NewRecord()
+	rec := bldr.NewRecordBatch()
 	return rec, nil
 }
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	colNames := make([]string, len(table.Columns))
 	for i, col := range table.Columns {
 		colNames[i] = identifier(col.Name)

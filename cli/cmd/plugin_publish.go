@@ -12,9 +12,9 @@ import (
 
 	cloudquery_api "github.com/cloudquery/cloudquery-api-go"
 	"github.com/cloudquery/cloudquery-api-go/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/api"
-	"github.com/cloudquery/cloudquery/cli/internal/hub"
-	"github.com/cloudquery/cloudquery/cli/internal/publish"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/api"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/hub"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/publish"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -29,6 +29,8 @@ This publishes a plugin version to CloudQuery Hub from a local dist directory.
 # Publish a plugin version from a local dist directory
 cloudquery plugin publish`
 )
+
+var errInvalidPluginName = errors.New("invalid plugin name. Must be in format <team_name>/<plugin_name>, set via the \"team\" and \"name\" fields in package.json or passed as an argument")
 
 func newCmdPluginPublish() *cobra.Command {
 	cmd := &cobra.Command{
@@ -53,6 +55,7 @@ func newCmdPluginPublish() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringP("dist-dir", "D", "dist", "Path to the dist directory")
+	cmd.Flags().StringP("ui-dir", "U", "", "Path to the built plugin UI directory")
 	cmd.Flags().BoolP("finalize", "f", false, `Finalize the plugin version after publishing. If false, the plugin version will be marked as draft.`)
 
 	return cmd
@@ -63,6 +66,17 @@ func runPluginPublish(ctx context.Context, cmd *cobra.Command, args []string) er
 	token, err := tc.GetToken()
 	if err != nil {
 		return fmt.Errorf("failed to get auth token: %w", err)
+	}
+
+	uiDir := cmd.Flag("ui-dir").Value.String()
+	if uiDir != "" {
+		fi, err := os.Stat(uiDir)
+		if err != nil {
+			return fmt.Errorf("failed checking UI directory: %w", err)
+		}
+		if !fi.IsDir() {
+			return errors.New("UI directory must be a directory")
+		}
 	}
 
 	distDir := cmd.Flag("dist-dir").Value.String()
@@ -77,9 +91,12 @@ func runPluginPublish(ctx context.Context, cmd *cobra.Command, args []string) er
 
 	teamName, pluginName := pkgJSON.Team, pkgJSON.Name
 	if teamName == "" || pluginName == "" {
+		if len(args) == 0 {
+			return errInvalidPluginName
+		}
 		parts := strings.Split(args[0], "/")
 		if len(parts) != 2 {
-			return errors.New("invalid plugin name. Must be in format <team_name>/<plugin_name>")
+			return errInvalidPluginName
 		}
 		teamName, pluginName = parts[0], parts[1]
 		pkgJSON.Team, pkgJSON.Name = teamName, pluginName
@@ -104,7 +121,7 @@ func runPluginPublish(ctx context.Context, cmd *cobra.Command, args []string) er
 		return fmt.Errorf("failed to create new draft version: %w", err)
 	}
 
-	if pkgJSON.Kind == cloudquery_api.Source {
+	if pkgJSON.Kind == cloudquery_api.PluginKindSource {
 		// upload table schemas
 		fmt.Println("Uploading table schemas...")
 		tablesJSONPath := filepath.Join(distDir, "tables.json")
@@ -124,6 +141,13 @@ func runPluginPublish(ctx context.Context, cmd *cobra.Command, args []string) er
 	// upload binaries
 	if err := publishPluginAssets(ctx, c, token.String(), distDir, pkgJSON); err != nil {
 		return fmt.Errorf("failed to upload binaries: %w", err)
+	}
+
+	if uiDir != "" {
+		fmt.Println("Uploading UI assets...")
+		if err := publish.UploadPluginUIAssets(ctx, c, teamName, string(pkgJSON.Kind), pluginName, pkgJSON.Version, uiDir); err != nil {
+			return fmt.Errorf("failed to upload UI assets: %w", err)
+		}
 	}
 
 	// optional: mark plugin as draft=false
@@ -156,8 +180,10 @@ func runPluginPublish(ctx context.Context, cmd *cobra.Command, args []string) er
 }
 
 func publishPluginAssets(ctx context.Context, c *cloudquery_api.ClientWithResponses, token, distDir string, pkgJSON publish.PackageJSONV1) error {
-	if pkgJSON.PackageType == string(cloudquery_api.Docker) {
-		return publish.PublishToDockerRegistry(ctx, token, distDir, pkgJSON)
+	if pkgJSON.PackageType == string(cloudquery_api.PluginPackageTypeDocker) {
+		return publish.PublishToDockerRegistry(ctx, token, distDir, pkgJSON, publish.Opts{
+			NoProgress: logConsole,
+		})
 	}
 
 	return publish.PublishNativeBinaries(ctx, c, distDir, pkgJSON)

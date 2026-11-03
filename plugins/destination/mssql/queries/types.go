@@ -7,11 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/cloudquery/plugin-sdk/v4/types"
 )
 
-func SQLType(dataType arrow.DataType) string {
+const DefaultMaxLengthNvarchar = "4000"
+
+func SQLType(dataType arrow.DataType, pk bool) string {
 	switch dataType := dataType.(type) {
 	case *arrow.BooleanType:
 		return "bit"
@@ -32,11 +34,11 @@ func SQLType(dataType arrow.DataType) string {
 	case *arrow.Float64Type:
 		return "float" // == float(53)
 
-	case *arrow.LargeStringType:
+	case *arrow.StringType, *arrow.LargeStringType, *types.InetType, *types.MACType:
+		if pk {
+			return "nvarchar(" + DefaultMaxLengthNvarchar + ")"
+		}
 		return "nvarchar(max)" // we will also use it as the default type
-
-	case *arrow.StringType, *types.InetType, *types.MACType:
-		return "nvarchar(4000)" // feasible to see these as PK, so need to limit the value
 
 	case *arrow.FixedSizeBinaryType:
 		return "varbinary(" + strconv.Itoa(dataType.ByteWidth) + ")"
@@ -92,13 +94,13 @@ func SchemaType(sqlType string) arrow.DataType {
 			return new(arrow.LargeBinaryType)
 		}
 
-		width, err := strconv.ParseInt(precision, 10, 64)
+		width, err := strconv.Atoi(precision)
 		if err != nil {
 			// should never happen
-			panic(fmt.Errorf("failed to parse %q into int64: %w", precision, err))
+			panic(fmt.Errorf("failed to parse %q into int: %w", precision, err))
 		}
 
-		return &arrow.FixedSizeBinaryType{ByteWidth: int(width)}
+		return &arrow.FixedSizeBinaryType{ByteWidth: width}
 	}
 
 	// default to LargeString (nvarchar(max))

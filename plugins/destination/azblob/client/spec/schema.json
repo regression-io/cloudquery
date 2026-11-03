@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/cloudquery/cloudquery/plugins/destination/azblob/client/spec/spec",
+  "$id": "https://github.com/cloudquery/cloudquery/plugins/destination/azblob/v4/client/spec/spec",
   "$ref": "#/$defs/Spec",
   "$defs": {
     "CSVSpec": {
@@ -32,6 +32,36 @@
       "description": "CloudQuery JSON file output spec."
     },
     "ParquetSpec": {
+      "properties": {
+        "version": {
+          "type": "string",
+          "enum": [
+            "v1.0",
+            "v2.4",
+            "v2.6",
+            "v2Latest"
+          ],
+          "description": "Parquet format version",
+          "default": "v2Latest"
+        },
+        "root_repetition": {
+          "type": "string",
+          "enum": [
+            "undefined",
+            "required",
+            "optional",
+            "repeated"
+          ],
+          "description": "Root repetition. This option is kept for compatibility. Since arrow-go v18.6.0, the Parquet writer does not write the root repetition. The value has no effect on the file.",
+          "default": "repeated"
+        },
+        "max_row_group_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum number of rows per Parquet row group.",
+          "default": 1048576
+        }
+      },
       "additionalProperties": false,
       "type": "object",
       "description": "CloudQuery Parquet file output spec."

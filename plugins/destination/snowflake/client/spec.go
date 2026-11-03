@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	defaultBatchSize          = 1000
-	defaultBatchSizeBytes     = 4 * 1024 * 1024
+	defaultBatchSize          = 5000
+	defaultBatchSizeBytes     = 20 * 1024 * 1024
 	defaultMigrateConcurrency = 1
 )
 
@@ -28,10 +28,10 @@ type Spec struct {
 	PrivateKey string `json:"private_key,omitempty"`
 
 	// Number of records to batch together before sending to the database.
-	BatchSize int `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
+	BatchSize int64 `json:"batch_size,omitempty" jsonschema:"minimum=1,default=1000"`
 
 	// Number of bytes (as Arrow buffer size) to batch together before sending to the database.
-	BatchSizeBytes int `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
+	BatchSizeBytes int64 `json:"batch_size_bytes,omitempty" jsonschema:"minimum=1,default=4194304"`
 
 	// By default, tables are migrated one at a time.
 	// This option allows you to migrate multiple tables concurrently.
@@ -61,7 +61,7 @@ func (s *Spec) SetDefaults() {
 func (s Spec) DSN() (string, error) {
 	cs := s.ConnectionString
 	if cs == "" {
-		return "", fmt.Errorf("connection_string is required")
+		return "", errors.New("connection_string is required")
 	}
 
 	if s.PrivateKey != "" {

@@ -29,42 +29,47 @@ type tableInfo struct {
 }
 
 func (*Client) normalizeColumns(tables schema.Tables) schema.Tables {
-	var normalized schema.Tables
+	normalized := make(schema.Tables, 0, len(tables))
 	for _, table := range tables {
-		normalizedTable := *table
-		normalizedTable.Columns = make(schema.ColumnList, len(table.Columns))
-		for i := range table.Columns {
-			// In DuckDB, a PK column must be NOT NULL, so we need to make sure that the schema we're comparing to has the same
-			// constraint.
-			normalizedColumn := table.Columns[i]
-			if normalizedColumn.PrimaryKey {
-				normalizedColumn.NotNull = true
-			}
-			// Since multiple schema types can map to the same duckdb type we need to normalize them to avoid false positives when detecting schema changes
-			normalizedColumn.Type = duckDBToArrow(arrowToDuckDB(normalizedColumn.Type))
-			normalizedTable.Columns[i] = normalizedColumn
-		}
-		normalized = append(normalized, &normalizedTable)
+		normalized = append(normalized, normalizeTable(table))
 	}
 
 	return normalized
 }
 
-func (c *Client) nonAutoMigratableTables(tables schema.Tables, duckdbTables schema.Tables) ([]string, [][]schema.TableColumnChange) {
-	var result []string
-	var tableChanges [][]schema.TableColumnChange
+func normalizeTable(table *schema.Table) *schema.Table {
+	normalizedTable := *table
+	normalizedTable.Columns = make(schema.ColumnList, len(table.Columns))
+	for i := range table.Columns {
+		normalizedColumn := table.Columns[i]
+		if keyListColumn(normalizedColumn) {
+			normalizedColumn.Type = duckDBToArrow("varchar")
+		}
+		// In DuckDB, a PK column must be NOT NULL, so we need to make sure that the schema we're comparing to has the same
+		// constraint.
+		if normalizedColumn.PrimaryKey {
+			normalizedColumn.NotNull = true
+		}
+		// Since multiple schema types can map to the same duckdb type we need to normalize them to avoid false positives when detecting schema changes
+		normalizedColumn.Type = duckDBToArrow(arrowToDuckDB(normalizedColumn.Type))
+		normalizedTable.Columns[i] = normalizedColumn
+	}
+	return &normalizedTable
+}
+
+func (*Client) nonAutoMigratableTables(tables schema.Tables, duckdbTables schema.Tables) map[string][]schema.TableColumnChange {
+	result := make(map[string][]schema.TableColumnChange)
 	for _, t := range tables {
 		duckdbTable := duckdbTables.Get(t.Name)
 		if duckdbTable == nil {
 			continue
 		}
 		changes := t.GetChanges(duckdbTable)
-		if !c.canAutoMigrate(changes) {
-			result = append(result, t.Name)
-			tableChanges = append(tableChanges, changes)
+		if !canAutoMigrate(changes) {
+			result[t.Name] = changes
 		}
 	}
-	return result, tableChanges
+	return result
 }
 
 func (c *Client) autoMigrateTable(ctx context.Context, table *schema.Table, changes []schema.TableColumnChange) error {
@@ -78,7 +83,7 @@ func (c *Client) autoMigrateTable(ctx context.Context, table *schema.Table, chan
 	return nil
 }
 
-func (*Client) canAutoMigrate(changes []schema.TableColumnChange) bool {
+func canAutoMigrate(changes []schema.TableColumnChange) bool {
 	for _, change := range changes {
 		if change.Type == schema.TableColumnChangeTypeAdd && (change.Current.PrimaryKey || change.Current.NotNull) {
 			return false
@@ -128,9 +133,9 @@ func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTab
 		}
 	}
 
-	nonAutoMigratableTables, changes := c.nonAutoMigratableTables(normalizedTablesSafeMode, duckdbTables)
+	nonAutoMigratableTables := c.nonAutoMigratableTables(normalizedTablesSafeMode, duckdbTables)
 	if len(nonAutoMigratableTables) > 0 {
-		return fmt.Errorf("tables %s with changes %v require migration. Migrate manually or consider using 'migrate_mode: forced'", strings.Join(nonAutoMigratableTables, ","), changes)
+		return fmt.Errorf("\nCan't migrate tables automatically, migrate manually or consider using 'migrate_mode: forced'. Non auto migratable tables changes:\n\n%s", schema.GetChangesSummary(nonAutoMigratableTables))
 	}
 
 	for _, table := range normalizedTables {
@@ -142,14 +147,14 @@ func (c *Client) MigrateTables(ctx context.Context, msgs message.WriteMigrateTab
 		duckdb := duckdbTables.Get(table.Name)
 		if duckdb == nil {
 			c.logger.Debug().Str("table", table.Name).Msg("Table doesn't exist, creating")
-			if err := c.createTableIfNotExist(ctx, table.Name, table); err != nil {
+			if err := c.createTableIfNotExist(ctx, table.Name, table, false); err != nil {
 				return err
 			}
 			continue
 		}
 
 		changes := table.GetChanges(duckdb)
-		if c.canAutoMigrate(changes) {
+		if canAutoMigrate(changes) {
 			c.logger.Info().Str("table", table.Name).Msg("Table exists, auto-migrating")
 			if err := c.autoMigrateTable(ctx, table, changes); err != nil {
 				return err
@@ -170,7 +175,7 @@ func (c *Client) recreateTable(ctx context.Context, table *schema.Table) error {
 	if err := c.exec(ctx, sql); err != nil {
 		return err
 	}
-	return c.createTableIfNotExist(ctx, table.Name, table)
+	return c.createTableIfNotExist(ctx, table.Name, table, false)
 }
 
 func (c *Client) addColumn(ctx context.Context, tableName string, columnName string, columnType string) error {
@@ -178,7 +183,7 @@ func (c *Client) addColumn(ctx context.Context, tableName string, columnName str
 	return c.exec(ctx, sql)
 }
 
-func (c *Client) createTableIfNotExist(ctx context.Context, tableName string, table *schema.Table) error {
+func (c *Client) createTableIfNotExist(ctx context.Context, tableName string, table *schema.Table, skipConstraints bool) error {
 	var sb strings.Builder
 	sb.WriteString("CREATE TABLE IF NOT EXISTS ")
 	sb.WriteString(sanitizeID(tableName))
@@ -187,15 +192,15 @@ func (c *Client) createTableIfNotExist(ctx context.Context, tableName string, ta
 
 	var pks []string
 	for i, col := range table.Columns {
-		sqlType := arrowToDuckDB(col.Type)
+		sqlType := duckDBType(col)
 		fieldDef := sanitizeID(col.Name) + ` ` + sqlType
-		if col.PrimaryKey {
+		if col.PrimaryKey && !skipConstraints {
 			pks = append(pks, col.Name)
 		}
-		if col.Unique {
+		if col.Unique && !skipConstraints {
 			fieldDef += " UNIQUE"
 		}
-		if col.NotNull {
+		if col.NotNull && !skipConstraints {
 			fieldDef += " NOT NULL"
 		}
 		sb.WriteString(fieldDef)

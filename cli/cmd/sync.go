@@ -1,26 +1,96 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 
-	apiAuth "github.com/cloudquery/cloudquery-api-go/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/auth"
-	"github.com/cloudquery/cloudquery/cli/internal/specs/v0"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/env"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/otel"
+	cqplatform "github.com/cloudquery/cloudquery/cli/v6/internal/platform"
+	"github.com/cloudquery/cloudquery/cli/v6/internal/specs/v0"
 	"github.com/cloudquery/plugin-pb-go/managedplugin"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
 const (
-	syncShort   = "Sync resources from configured source plugins to destinations"
+	syncShort = "Sync resources from configured source plugins to destinations"
+	syncLong  = `Sync resources from configured source plugins to destinations
+
+### Incremental State
+
+For a source with ` + "`backend_options`" + `, the CLI saves the incremental state only after every destination commits the records synced before it. This needs a source integration that sends state checkpoints, and destination integrations that support flushing: their changelogs say when they do. Otherwise the source saves its state itself, as before. The sync log says whether the CLI requested state checkpoints, or why not.
+
+If a destination or the state backend fails to commit records, the CLI saves no more state for that source, finishes the sync and exits with an error, which the sync summary also gives as ` + "`state_error`" + `. Then:
+
+- The next sync syncs again every record after the last saved state, so destinations in append mode get those records again.
+- Delete-stale is skipped for the tables that failed and their related tables, or for every table if the destination does not say which tables failed.
+
+### Flag Details
+
+#### --summary-location
+
+When set, a JSON summary of each sync is appended to the specified file after the sync completes. The file uses JSONL format (one JSON object per line). When syncing to multiple destinations, a separate entry is written for each destination.
+
+Example usage:
+
+` + "```bash\ncloudquery sync config.yml --summary-location summary.jsonl\n```" + `
+
+The summary contains the following fields:
+
+| Field                    | Type     | Description                                                       |
+| ------------------------ | -------- | ----------------------------------------------------------------- |
+| ` + "`cli_version`" + `            | string   | CloudQuery CLI version                                            |
+| ` + "`sync_id`" + `                | string   | Unique sync identifier (from ` + "`--invocation-id`" + ` or auto-generated) |
+| ` + "`sync_time`" + `              | string   | Sync start time (RFC 3339)                                        |
+| ` + "`sync_duration_ms`" + `       | number   | Sync duration in milliseconds                                     |
+| ` + "`resources`" + `              | number   | Total resources synced                                            |
+| ` + "`source_name`" + `            | string   | Source integration name                                           |
+| ` + "`source_path`" + `            | string   | Source integration path                                           |
+| ` + "`source_version`" + `         | string   | Source integration version                                        |
+| ` + "`source_errors`" + `          | number   | Errors from the source integration                                |
+| ` + "`source_warnings`" + `        | number   | Warnings from the source integration                              |
+| ` + "`source_tables`" + `          | string[] | Tables synced from source                                         |
+| ` + "`destination_name`" + `       | string   | Destination integration name                                      |
+| ` + "`destination_path`" + `       | string   | Destination integration path                                      |
+| ` + "`destination_version`" + `    | string   | Destination integration version                                   |
+| ` + "`destination_errors`" + `     | number   | Errors from the destination integration                           |
+| ` + "`destination_warnings`" + `   | number   | Warnings from the destination integration                         |
+| ` + "`sync_group_id`" + `          | string   | Rendered sync group ID (if configured)                            |
+| ` + "`shard_num`" + `              | number   | Shard number (if using ` + "`--shard`" + `)                                 |
+| ` + "`shard_total`" + `            | number   | Total shards (if using ` + "`--shard`" + `)                                 |
+| ` + "`resources_per_table`" + `    | object   | Resource count per table                                          |
+| ` + "`errors_per_table`" + `       | object   | Error count per table                                             |
+| ` + "`durations_per_table_ms`" + ` | object   | Duration per table in milliseconds                                |
+| ` + "`state_error`" + `            | string   | Why the sync stopped saving state (if it failed to commit)        |
+
+#### --invocation-id
+
+A UUID that uniquely identifies a sync invocation. If not provided, a random UUID is automatically generated.
+
+This flag serves three purposes:
+
+1. **OpenTelemetry correlation**: The UUID is attached to all logs and traces, allowing you to correlate CLI activity with integration activity in your [monitoring setup](/cli/managing-cloudquery/monitoring/overview).
+2. **Sync summary**: The UUID is stored as the ` + "`sync_id`" + ` field in the [sync summary](#--summary-location).
+3. **` + "`sync_group_id`" + ` template**: When a destination's [` + "`sync_group_id`" + `](/cli/integrations/destinations#sync_group_id) uses the ` + "`{{SYNC_ID}}`" + ` placeholder, it is replaced with this UUID at runtime.
+
+Example: using a fixed invocation ID for repeatable tracing:
+
+` + "```bash\ncloudquery sync config.yml --invocation-id 550e8400-e29b-41d4-a716-446655440000\n```"
 	syncExample = `# Sync resources from configuration in a directory
 cloudquery sync ./directory
 # Sync resources from directories and files
 cloudquery sync ./directory ./aws.yml ./pg.yml
+# Log tables metrics to a file
+cloudquery sync ./directory ./aws.yml ./pg.yml --tables-metrics-location metrics.txt
+# Shard the sync process into 4 shards and run the first shard
+cloudquery sync spec.yml --shard 1/4
 `
 )
 
@@ -28,14 +98,18 @@ func NewCmdSync() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "sync [files or directories]",
 		Short:   syncShort,
-		Long:    syncShort,
+		Long:    syncLong,
 		Example: syncExample,
 		Args:    cobra.MinimumNArgs(1),
 		RunE:    sync,
 	}
 	cmd.Flags().Bool("no-migrate", false, "Disable auto-migration before sync. By default, sync runs a migration before syncing resources.")
-	cmd.Flags().String("license", "", "set offline license file")
-	cmd.Flags().String("summary-location", "", "Sync summary file location. This feature is in Preview. Please provide feedback to help us improve it.")
+	cmd.Flags().String("license", "", "Set offline license file.")
+	cmd.Flags().String("summary-location", "", "Sync summary file location.")
+	cmd.Flags().String("tables-metrics-location", "", "Tables metrics file location. This feature is in Preview. Please provide feedback to help us improve it. Works with plugins released on 2024-07-10 or later.")
+	cmd.Flags().String("shard", "", "Allows splitting the sync process into multiple shards. This feature is in Preview. Please provide feedback to help us improve it. For a list of supported plugins visit https://www.cloudquery.io/docs/cli/managing-cloudquery/running-in-parallel")
+	cmd.Flags().Bool("cq-columns-not-null", false, "Force CloudQuery internal columns to be NOT NULL. This feature is in Preview. Please provide feedback to help us improve it.")
+	_ = cmd.Flags().MarkHidden("cq-columns-not-null")
 
 	return cmd
 }
@@ -77,7 +151,63 @@ func findMaxCommonVersion(pluginSupported []int, cliSupported []int) int {
 	return maxCommon
 }
 
-func sync(cmd *cobra.Command, args []string) error {
+func errUnsupportedSourceProtocol(name string, version int) error {
+	return fmt.Errorf("please upgrade source %v or use an older CLI version, <= v6.49.2: it uses plugin protocol v%d and this CLI requires protocol v3 (plugin-sdk v4 or later)", name, version)
+}
+
+func sourceProtocolVersions(ctx context.Context, sources []*specs.Source, clients managedplugin.Clients) (map[string]int, error) {
+	maxVersions := make(map[string]int, len(sources))
+	var unsupported error
+	for _, source := range sources {
+		versions, err := clients.ClientByName(source.Name).Versions(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get source versions: %w", err)
+		}
+		maxVersion := findMaxCommonVersion(versions, []int{0, 1, 2, 3})
+		if maxVersion == 1 || maxVersion == 2 {
+			unsupported = errors.Join(unsupported, errUnsupportedSourceProtocol(source.Name, maxVersion))
+		}
+		maxVersions[source.Name] = maxVersion
+	}
+	return maxVersions, unsupported
+}
+
+func parseShard(cmd *cobra.Command) (*shard, error) {
+	shardFlag, err := cmd.Flags().GetString("shard")
+	if err != nil {
+		return nil, err
+	}
+	if shardFlag == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(shardFlag, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid shard format: %s. Valid format is num/total, e.g. 1/4", shardFlag)
+	}
+
+	num, err := strconv.ParseInt(parts[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid shard format: %s. Shard num should be a valid integer", shardFlag)
+	}
+
+	total, err := strconv.ParseInt(parts[1], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid shard format: %s. Total shards should be a valid integer", shardFlag)
+	}
+
+	if num < 1 || total < 1 {
+		return nil, fmt.Errorf("invalid shard format: %s. Shard num and total shards should be greater than 0", shardFlag)
+	}
+
+	if num > total {
+		return nil, fmt.Errorf("invalid shard format: %s. Shard num should be less than or equal to total shards", shardFlag)
+	}
+
+	return &shard{num: int32(num), total: int32(total)}, nil
+}
+
+func sync(cmd *cobra.Command, args []string) (syncErr error) {
 	cqDir, err := cmd.Flags().GetString("cq-dir")
 	if err != nil {
 		return err
@@ -93,44 +223,132 @@ func sync(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	shard, err := parseShard(cmd)
+	if err != nil {
+		return err
+	}
+
+	cqColumnsNotNull, err := cmd.Flags().GetBool("cq-columns-not-null")
+	if err != nil {
+		return err
+	}
+
 	// in the cloud sync environment, we pass only the relevant environment variables to the plugin
-	isolatePluginEnvironment := apiAuth.NewTokenClient().GetTokenType() == apiAuth.SyncRunAPIKey
+	isolatePluginEnvironment := env.IsCloud()
 
 	ctx := cmd.Context()
 	log.Info().Strs("args", args).Msg("Loading spec(s)")
 	fmt.Printf("Loading spec(s) from %s\n", strings.Join(args, ", "))
-	specReader, err := specs.NewSpecReader(args)
+	// Validate after injection so a source-only spec isn't rejected before the
+	// platform destination is added.
+	specReader, err := specs.NewSpecReaderWithoutValidation(args)
 	if err != nil {
 		return fmt.Errorf("failed to load spec(s) from %s. Error: %w", strings.Join(args, ", "), err)
 	}
 
 	sources := specReader.Sources
 	destinations := specReader.Destinations
+	transformers := specReader.Transformers
+
+	tableMetricsLocation, err := cmd.Flags().GetString("tables-metrics-location")
+	if err != nil {
+		return err
+	}
+
+	summaryLocation, err := cmd.Flags().GetString("summary-location")
+	if err != nil {
+		return err
+	}
+
+	var otelReceiver *otel.OtelReceiver
+
+	// dlToken/teamName authenticate plugin download + usage against cloud
+	// (headless cqpd_ token, else cloud login). See cqplatform.DownloadAuth.
+	dlToken, teamName, err := cqplatform.DownloadAuth(ctx, log.Logger, sources, destinations, transformers)
+	if err != nil {
+		return err
+	}
+	// Headless cqpd_: let source/destination plugins authenticate premium-table
+	// validation + usage against cloud (they read CLOUDQUERY_API_KEY from their
+	// inherited env).
+	cqplatform.PropagatePluginCredential(dlToken)
+
+	// Must run before the needSummary/otel decisions below: the injected
+	// destination sets SyncSummary.
+	destinations, err = cqplatform.MaybeInjectDestination(ctx, log.Logger, dlToken, teamName, sources, destinations)
+	if err != nil {
+		return err
+	}
+
+	if err := specReader.SetDestinationsAndValidate(destinations); err != nil {
+		return fmt.Errorf("failed to load spec(s) from %s. Error: %w", strings.Join(args, ", "), err)
+	}
+
+	var destsWantSummary bool
+	for _, dest := range destinations {
+		destsWantSummary = destsWantSummary || dest.SyncSummary
+	}
+	needSummary := summaryLocation != "" || destsWantSummary
+	tableDurations := otel.NewTableDurations()
+
+	if tableMetricsLocation != "" || needSummary {
+		var sourcesWithOtelEndpoint []string
+		for _, source := range sources {
+			if source.OtelEndpoint != "" {
+				sourcesWithOtelEndpoint = append(sourcesWithOtelEndpoint, source.Name)
+			}
+		}
+		if tableMetricsLocation != "" && len(sourcesWithOtelEndpoint) > 0 {
+			return fmt.Errorf("the `--tables-metrics-location` flag is not supported for sources with `otel_endpoint` configured. Either remove the `--tables-metrics-location` flag or do not configure `otel_endpoint` for the following sources: %s", strings.Join(sourcesWithOtelEndpoint, ", "))
+		}
+		if len(sourcesWithOtelEndpoint) == 0 {
+			otelReceiver, err = otel.StartOtelReceiver(ctx, otel.WithMetricsFilename(tableMetricsLocation), otel.WithDurationCallback(tableDurations.Set))
+			if err != nil {
+				log.Warn().Err(err).Msg("Failed to start otelReceiver")
+			} else {
+				defer otelReceiver.Shutdown(ctx)
+			}
+		} else {
+			log.Warn().Strs("sources", sourcesWithOtelEndpoint).Msg("Sync Summary requested with sources having `otel_endpoint` configured, table durations will NOT be included in summary.")
+		}
+	}
+
 	sourcePluginClients := make(managedplugin.Clients, 0)
 	defer func() {
 		if err := sourcePluginClients.Terminate(); err != nil {
 			fmt.Println(err)
 		}
 	}()
-	authToken, err := auth.GetAuthTokenIfNeeded(log.Logger, sources, destinations)
-	if err != nil {
-		return fmt.Errorf("failed to get auth token: %w", err)
-	}
-	teamName, err := auth.GetTeamForToken(ctx, authToken)
-	if err != nil {
-		return fmt.Errorf("failed to get team name from token: %w", err)
-	}
+	pluginVersionWarner, _ := managedplugin.NewPluginVersionWarner(log.Logger, dlToken)
+	specs.WarnOnOutdatedVersions(ctx, pluginVersionWarner, sources, destinations, transformers, specs.WithUpgradeCheckRecommendation(args, os.Stdout))
 
 	// in a cloud sync environment, we pass only the relevant environment variables to the plugin
 	osEnviron := os.Environ()
 
+	// To force backend destinations to use TCP if the sources are using Docker
+	backendsForDockerSource := map[string]struct{}{}    // destination plugin names
+	dockerSourcesUsingBackends := map[string]struct{}{} // source plugin names
+
 	for _, source := range sources {
+		if otelReceiver != nil {
+			source.OtelEndpoint = otelReceiver.Endpoint
+			source.OtelEndpointInsecure = true
+		}
 		opts := []managedplugin.Option{
 			managedplugin.WithLogger(log.Logger),
 			managedplugin.WithOtelEndpoint(source.OtelEndpoint),
-			managedplugin.WithAuthToken(authToken.Value),
+			managedplugin.WithAuthToken(dlToken),
 			managedplugin.WithTeamName(teamName),
 			managedplugin.WithLicenseFile(licenseFile),
+		}
+		// To force backend destinations to use TCP if the sources are using Docker
+		if source.Registry == specs.RegistryDocker && source.BackendOptions.PluginName() != "" {
+			opts = append(opts, managedplugin.WithDockerExtraHosts([]string{"host.docker.internal:host-gateway"}))
+			backendsForDockerSource[source.BackendOptions.PluginName()] = struct{}{}
+			dockerSourcesUsingBackends[source.Name] = struct{}{}
+		}
+		if logConsole {
+			opts = append(opts, managedplugin.WithNoProgress())
 		}
 		if cqDir != "" {
 			opts = append(opts, managedplugin.WithDirectory(cqDir))
@@ -150,12 +368,17 @@ func sync(cmd *cobra.Command, args []string) error {
 		}
 		if isolatePluginEnvironment {
 			cfg.Environment = filterPluginEnv(osEnviron, source.Name, "source")
+			secretAwareRedactor.AddSecretEnv(cfg.Environment)
 		}
 		sourcePluginClient, err := managedplugin.NewClient(ctx, managedplugin.PluginSource, cfg, opts...)
 		if err != nil {
 			return enrichClientError(managedplugin.Clients{}, []bool{source.RegistryInferred()}, err)
 		}
 		sourcePluginClients = append(sourcePluginClients, sourcePluginClient)
+	}
+	sourceVersions, err := sourceProtocolVersions(ctx, sources, sourcePluginClients)
+	if err != nil {
+		return err
 	}
 
 	destinationPluginClients := make(managedplugin.Clients, 0)
@@ -167,9 +390,15 @@ func sync(cmd *cobra.Command, args []string) error {
 	for _, destination := range destinations {
 		opts := []managedplugin.Option{
 			managedplugin.WithLogger(log.Logger),
-			managedplugin.WithAuthToken(authToken.Value),
+			managedplugin.WithAuthToken(dlToken),
 			managedplugin.WithTeamName(teamName),
 			managedplugin.WithLicenseFile(licenseFile),
+		}
+		if _, ok := backendsForDockerSource[destination.Name]; ok {
+			opts = append(opts, managedplugin.WithUseTCP())
+		}
+		if logConsole {
+			opts = append(opts, managedplugin.WithNoProgress())
 		}
 		if cqDir != "" {
 			opts = append(opts, managedplugin.WithDirectory(cqDir))
@@ -187,6 +416,7 @@ func sync(cmd *cobra.Command, args []string) error {
 		}
 		if isolatePluginEnvironment {
 			cfg.Environment = filterPluginEnv(osEnviron, destination.Name, "destination")
+			secretAwareRedactor.AddSecretEnv(cfg.Environment)
 		}
 		destPluginClient, err := managedplugin.NewClient(ctx, managedplugin.PluginDestination, cfg, opts...)
 		if err != nil {
@@ -195,22 +425,74 @@ func sync(cmd *cobra.Command, args []string) error {
 		destinationPluginClients = append(destinationPluginClients, destPluginClient)
 	}
 
+	transformerPluginClients := make(managedplugin.Clients, 0)
+	defer func() {
+		if err := transformerPluginClients.Terminate(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+	for _, transformer := range transformers {
+		opts := []managedplugin.Option{
+			managedplugin.WithLogger(log.Logger),
+			managedplugin.WithAuthToken(dlToken),
+			managedplugin.WithTeamName(teamName),
+			managedplugin.WithLicenseFile(licenseFile),
+		}
+		if logConsole {
+			opts = append(opts, managedplugin.WithNoProgress())
+		}
+		if cqDir != "" {
+			opts = append(opts, managedplugin.WithDirectory(cqDir))
+		}
+		if disableSentry {
+			opts = append(opts, managedplugin.WithNoSentry())
+		}
+
+		cfg := managedplugin.Config{
+			Name:       transformer.Name,
+			Registry:   SpecRegistryToPlugin(transformer.Registry),
+			Version:    transformer.Version,
+			Path:       transformer.Path,
+			DockerAuth: transformer.DockerRegistryAuthToken,
+		}
+		transPluginClient, err := managedplugin.NewClient(ctx, managedplugin.PluginTransformer, cfg, opts...)
+		if err != nil {
+			return enrichClientError(managedplugin.Clients{}, []bool{transformer.RegistryInferred()}, err)
+		}
+		transformerPluginClients = append(transformerPluginClients, transPluginClient)
+	}
+
+	// syncs that finished without saving their state, which do not stop the other sources
+	var stateNotSaved error
+	defer func() {
+		syncErr = errors.Join(syncErr, stateNotSaved)
+	}()
 	for _, source := range sources {
 		cl := sourcePluginClients.ClientByName(source.Name)
-		versions, err := cl.Versions(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get source versions: %w", err)
-		}
-		maxVersion := findMaxCommonVersion(versions, []int{0, 1, 2, 3})
+		maxVersion := sourceVersions[source.Name]
 
 		var destinationClientsForSource []*managedplugin.Client
 		var destinationForSourceSpec []specs.Destination
+		var transformerClientsForDestination = map[string][]*managedplugin.Client{}
+		var transformerForDestinationSpec = map[string][]specs.Transformer{}
 		var backendClientForSource *managedplugin.Client
 		var destinationForSourceBackendSpec *specs.Destination
 		for _, destination := range destinations {
 			if slices.Contains(source.Destinations, destination.Name) {
 				destinationClientsForSource = append(destinationClientsForSource, destinationPluginClients.ClientByName(destination.Name))
 				destinationForSourceSpec = append(destinationForSourceSpec, *destination)
+
+				// Each destination defines their own transformers
+				ts := []*managedplugin.Client{}
+				tsSpecs := []specs.Transformer{}
+				for _, transformer := range transformers {
+					if slices.Contains(destination.Transformers, transformer.Name) {
+						ts = append(ts, transformerPluginClients.ClientByName(transformer.Name))
+						tsSpecs = append(tsSpecs, *transformer)
+					}
+				}
+				transformerClientsForDestination[destination.Name] = ts
+				transformerForDestinationSpec[destination.Name] = tsSpecs
 				continue
 			}
 
@@ -239,11 +521,19 @@ func sync(cmd *cobra.Command, args []string) error {
 				for field, msg := range destWarnings {
 					log.Warn().Str("destination", destination.Name()).Str("field", field).Msg(msg)
 				}
+				for _, transformer := range transformerClientsForDestination[destination.Name()] {
+					transformerWarnings := specReader.GetTransformerWarningsByName(source.Name)
+					for field, msg := range transformerWarnings {
+						log.Warn().Str("transformer", transformer.Name()).Str("field", field).Msg(msg)
+					}
+				}
 			}
 
+			_, shouldReplaceLocalhost := dockerSourcesUsingBackends[source.Name]
 			src := v3source{
-				client: cl,
-				spec:   *source,
+				client:                 cl,
+				spec:                   *source,
+				shouldReplaceLocalhost: shouldReplaceLocalhost,
 			}
 			dests := make([]v3destination, 0, len(destinationClientsForSource))
 			for i, destination := range destinationClientsForSource {
@@ -252,6 +542,16 @@ func sync(cmd *cobra.Command, args []string) error {
 					spec:   destinationForSourceSpec[i],
 				})
 			}
+			transfs := map[string][]v3transformer{}
+			for destinationName, transformerClients := range transformerClientsForDestination {
+				for i, transformer := range transformerClients {
+					transfs[destinationName] = append(transfs[destinationName], v3transformer{
+						client: transformer,
+						spec:   transformerForDestinationSpec[destinationName][i],
+					})
+				}
+			}
+
 			var backend *v3destination
 			if backendClientForSource != nil && destinationForSourceBackendSpec != nil {
 				backend = &v3destination{
@@ -260,34 +560,26 @@ func sync(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			summaryLocation, err := cmd.Flags().GetString("summary-location")
-			if err != nil {
-				return err
+			syncOptions := syncV3Options{
+				source:                    src,
+				destinations:              dests,
+				transformersByDestination: transfs,
+				backend:                   backend,
+				uid:                       invocationUUID.String(),
+				noMigrate:                 noMigrate,
+				summaryLocation:           summaryLocation,
+				shard:                     shard,
+				cqColumnsNotNull:          cqColumnsNotNull,
+				tableDurations:            tableDurations.GetAll,
+			}
+			if err := syncConnectionV3(ctx, syncOptions); err != nil {
+				// only a sync that finished goes on with the next source: a joined state-not-saved error explains a failure
+				if _, finished := err.(*stateNotSavedError); !finished { //nolint:errorlint
+					return fmt.Errorf("failed to sync v3 source %s: %w", cl.Name(), err)
+				}
+				stateNotSaved = errors.Join(stateNotSaved, fmt.Errorf("source %s: %w", cl.Name(), err))
 			}
 
-			if err := syncConnectionV3(ctx, src, dests, backend, invocationUUID.String(), noMigrate, summaryLocation); err != nil {
-				return fmt.Errorf("failed to sync v3 source %s: %w", cl.Name(), err)
-			}
-
-		case 2:
-			destinationsVersions := make([][]int, 0, len(destinationClientsForSource))
-			for _, destination := range destinationClientsForSource {
-				versions, err := destination.Versions(ctx)
-				if err != nil {
-					return fmt.Errorf("failed to get destination versions: %w", err)
-				}
-				if !slices.Contains(versions, 1) {
-					return fmt.Errorf("destination plugin %[1]s does not support CloudQuery SDK version 1. Please upgrade to a newer version of the %[1]s destination plugin", destination.Name())
-				}
-				destinationsVersions = append(destinationsVersions, versions)
-			}
-			if err := syncConnectionV2(ctx, cl, destinationClientsForSource, *source, destinationForSourceSpec, invocationUUID.String(), noMigrate, destinationsVersions); err != nil {
-				return fmt.Errorf("failed to sync v2 source %s: %w", cl.Name(), err)
-			}
-		case 1:
-			if err := syncConnectionV1(ctx, cl, destinationClientsForSource, *source, destinationForSourceSpec, invocationUUID.String(), noMigrate); err != nil {
-				return fmt.Errorf("failed to sync v1 source %s: %w", cl.Name(), err)
-			}
 		case 0:
 			return fmt.Errorf("please upgrade source %v or use an older CLI version, between v3.0.1 and v3.5.3", source.Name)
 		case -1:
@@ -303,18 +595,42 @@ func sync(cmd *cobra.Command, args []string) error {
 }
 
 func filterPluginEnv(environ []string, pluginName, kind string) []string {
-	env := make([]string, 0)
+	pluginEnv := make([]string, 0, len(environ))
 	cleanName := strings.ReplaceAll(pluginName, "-", "_")
 	prefix := strings.ToUpper("__" + kind + "_" + cleanName + "__")
+
+	globalEnvironmentVariables := map[string]string{}
+	specificEnvironmentVariables := map[string]bool{}
+
 	for _, v := range environ {
 		switch {
 		case strings.HasPrefix(v, "CLOUDQUERY_API_KEY="),
-			strings.HasPrefix(v, "_CQ_TEAM_NAME="),
+			strings.HasPrefix(v, "AWS_"):
+			k := getEnvKey(v)
+			globalEnvironmentVariables[k] = v
+		case strings.HasPrefix(v, "_CQ_TEAM_NAME="),
+			strings.HasPrefix(v, "_CQ_INSTALLATION_ID="),
 			strings.HasPrefix(v, "HOME="):
-			env = append(env, v)
+			pluginEnv = append(pluginEnv, v)
 		case strings.HasPrefix(v, prefix):
-			env = append(env, strings.TrimPrefix(v, prefix))
+			cleanEnv := strings.TrimPrefix(v, prefix)
+			pluginEnv = append(pluginEnv, cleanEnv)
+			if strings.HasPrefix(cleanEnv, "CLOUDQUERY_API_KEY=") ||
+				strings.HasPrefix(cleanEnv, "AWS_") {
+				k := getEnvKey(cleanEnv)
+				specificEnvironmentVariables[k] = true
+			}
 		}
 	}
-	return env
+	for k, v := range globalEnvironmentVariables {
+		if _, ok := specificEnvironmentVariables[k]; !ok {
+			pluginEnv = append(pluginEnv, v)
+		}
+	}
+	return pluginEnv
+}
+
+func getEnvKey(v string) string {
+	parts := strings.SplitN(v, "=", 2)
+	return parts[0]
 }

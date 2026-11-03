@@ -1,8 +1,8 @@
 package client
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 )
 
 func transformArr(arr arrow.Array) []any {
@@ -61,7 +61,7 @@ func transformArr(arr arrow.Array) []any {
 	return pgArr
 }
 
-func transformValues(r arrow.Record) []map[string]any {
+func transformValues(r arrow.RecordBatch) []map[string]any {
 	results := make([]map[string]any, r.NumRows())
 
 	for i := range results {

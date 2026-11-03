@@ -10,10 +10,12 @@ import (
 	"runtime"
 	"strings"
 
-	internalPlugin "github.com/cloudquery/cloudquery/plugins/destination/duckdb/resources/plugin"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/extensions"
+	internalPlugin "github.com/cloudquery/cloudquery/plugins/destination/duckdb/v5/resources/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/writers/batchwriter"
-	"github.com/marcboeker/go-duckdb"
+	"github.com/duckdb/duckdb-go/v2"
 	"github.com/rs/zerolog"
 )
 
@@ -31,10 +33,13 @@ type Client struct {
 
 var _ plugin.Client = (*Client)(nil)
 
-func New(ctx context.Context, logger zerolog.Logger, spec []byte, _ plugin.NewClientOptions) (plugin.Client, error) {
+func New(ctx context.Context, logger zerolog.Logger, spec []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
 	var err error
 	c := &Client{
 		logger: logger.With().Str("module", "duckdb-dest").Logger(),
+	}
+	if opts.NoConnection {
+		return c, nil
 	}
 	if err := json.Unmarshal(spec, &c.spec); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal spec: %w", err)
@@ -45,18 +50,7 @@ func New(ctx context.Context, logger zerolog.Logger, spec []byte, _ plugin.NewCl
 		return nil, fmt.Errorf("failed to create batch writer: %w", err)
 	}
 
-	if strings.HasPrefix(c.spec.ConnectionString, "md:") {
-		// Motherduck, add 'custom_user_agent' to the connection string
-		if strings.Contains(c.spec.ConnectionString, "?") {
-			c.spec.ConnectionString += "&"
-		} else {
-			c.spec.ConnectionString += "?"
-		}
-		c.spec.ConnectionString += fmt.Sprintf("custom_user_agent=%s_%s_%s/%s(%s_%s)",
-			internalPlugin.Team, internalPlugin.Kind, internalPlugin.Name, strings.TrimPrefix(internalPlugin.Version, "v"), runtime.GOOS, runtime.GOARCH)
-	}
-
-	c.connector, err = duckdb.NewConnector(c.spec.ConnectionString, nil)
+	c.connector, err = duckdb.NewConnector(amendConnectionString(c.spec.ConnectionString), useUTC)
 	if err != nil {
 		return nil, err
 	}
@@ -71,12 +65,19 @@ func New(ctx context.Context, logger zerolog.Logger, spec []byte, _ plugin.NewCl
 		return nil, err
 	}
 
+	// Unregister the built-in UUID type to avoid conflicts with our own UUID type
+	if _, ok := arrow.GetExtensionType(extensions.NewUUIDType().ExtensionName()).(*extensions.UUIDType); ok {
+		if err := arrow.UnregisterExtensionType(extensions.NewUUIDType().ExtensionName()); err != nil {
+			return nil, err
+		}
+	}
+
 	return c, nil
 }
 
 func (c *Client) Close(ctx context.Context) error {
 	if c.db == nil {
-		return fmt.Errorf("client already closed or not initialized")
+		return errors.New("client already closed or not initialized")
 	}
 
 	err1 := c.writer.Close(ctx)
@@ -87,6 +88,29 @@ func (c *Client) Close(ctx context.Context) error {
 	err := errors.Join(err1, c.db.Close())
 	c.db = nil
 	return err
+}
+
+func TestConnection(ctx context.Context, _ zerolog.Logger, specBytes []byte) error {
+	var s Spec
+	if err := json.Unmarshal(specBytes, &s); err != nil {
+		return &plugin.TestConnError{
+			Code:    "INVALID_SPEC",
+			Message: fmt.Errorf("failed to unmarshal spec: %w", err),
+		}
+	}
+	s.SetDefaults()
+
+	connector, err := duckdb.NewConnector(amendConnectionString(s.ConnectionString), useUTC)
+	if err != nil {
+		return err
+	}
+	db := sql.OpenDB(connector)
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return err
+	}
+
+	return db.Close()
 }
 
 func (c *Client) exec(ctx context.Context, query string, args ...any) error {
@@ -100,5 +124,26 @@ func (c *Client) exec(ctx context.Context, query string, args ...any) error {
 			logEvent.Int64("rowsAffected", rowsAffected).Err(rowsErr).Msg("exec query")
 		}
 	}
+	return err
+}
+
+func amendConnectionString(s string) string {
+	if !strings.HasPrefix(s, "md:") {
+		return s
+	}
+
+	// Motherduck, add 'custom_user_agent' to the connection string
+	if strings.Contains(s, "?") {
+		s += "&"
+	} else {
+		s += "?"
+	}
+	s += fmt.Sprintf("custom_user_agent=%s_%s_%s/%s(%s_%s)",
+		internalPlugin.Team, internalPlugin.Kind, internalPlugin.Name, strings.TrimPrefix(internalPlugin.Version, "v"), runtime.GOOS, runtime.GOARCH)
+	return s
+}
+
+func useUTC(execer driver.ExecerContext) error {
+	_, err := execer.ExecContext(context.Background(), "SET TimeZone = 'UTC'", nil)
 	return err
 }

@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/cloudquery/cloudquery/plugins/source/hackernews/client"
+	"github.com/cloudquery/cloudquery/plugins/source/hackernews/v3/client"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 )
 
@@ -20,5 +20,6 @@ func Plugin() *plugin.Plugin {
 		plugin.WithKind(Kind),
 		plugin.WithTeam(Team),
 		plugin.WithJSONSchema(client.JSONSchema),
+		plugin.WithConnectionTester(connectionTester(defaultClientFn)),
 	)
 }

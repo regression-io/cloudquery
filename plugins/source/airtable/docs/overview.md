@@ -1,10 +1,10 @@
-The CloudQuery Airtable plugin pulls data from [Airtable](https://airtable.com/) and loads it into any supported CloudQuery destination (e.g. PostgreSQL, BigQuery, Snowflake, and [more](https://hub.cloudquery.io/plugins/destination)).
+The CloudQuery Airtable plugin pulls data from [Airtable](https://airtable.com/) and loads it into any supported CloudQuery destination (e.g. PostgreSQL, BigQuery, Snowflake, and [more](https://www.cloudquery.io/hub/plugins/destination)).
 
 The plugin discover all bases and tables in your account and syncs them to the destination.
 
 ## Example Configuration
 
-This example syncs from Airtable to a Postgres destination. The (top level) source spec section is described in the [Source Spec Reference](/docs/reference/source-spec).
+This example syncs from Airtable to a Postgres destination. The (top level) source spec section is described in the [Source Spec Reference](/docs/cli/integrations/sources#complete-source-spec-reference).
 
 :configuration
 
@@ -54,4 +54,4 @@ This is the (nested) spec used by the Airtable source plugin:
 
 ## Running in a Containerized Environment
 
-To run the Airtable plugin in a containerized environment, see the [Using CloudQuery Docker Registry Plugins Inside a Containerized Environment](https://docs.cloudquery.io/docs/advanced-topics/using-cloud-query-docker-registry-plugins-inside-a-containerized-environment) guide.
+To run the Airtable plugin in a containerized environment, see the [Using CloudQuery Docker Registry Integrations Inside a Containerized Environment](https://www.cloudquery.io/docs/cli/advanced/using-cloud-query-docker-registry-integrations-inside-a-containerized-environment) guide.

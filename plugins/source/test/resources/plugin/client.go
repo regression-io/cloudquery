@@ -7,8 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cloudquery/cloudquery/plugins/source/test/client"
-	"github.com/cloudquery/cloudquery/plugins/source/test/resources/services"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/cloudquery/cloudquery/plugins/source/test/v4/client"
+	"github.com/cloudquery/cloudquery/plugins/source/test/v4/resources/services"
 	"github.com/cloudquery/plugin-sdk/v4/message"
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/premium"
@@ -65,7 +68,50 @@ func (c *Client) Sync(ctx context.Context, options plugin.SyncOptions, res chan<
 		Spec:   c.config,
 	}
 
-	return c.scheduler.Sync(ctx, schedulerClient, tt, res, scheduler.WithSyncDeterministicCQID(options.DeterministicCQID))
+	schedulerOptions := []scheduler.SyncOption{scheduler.WithSyncDeterministicCQID(options.DeterministicCQID)}
+	if options.Shard != nil {
+		schedulerOptions = append(schedulerOptions, scheduler.WithShard(options.Shard.Num, options.Shard.Total))
+	}
+
+	err = c.scheduler.Sync(ctx, schedulerClient, tt, res, schedulerOptions...)
+	if err != nil {
+		return fmt.Errorf("failed to run sync: %w", err)
+	}
+
+	if len(c.config.DeleteRecords) > 0 {
+		c.deleteRecords(res)
+	}
+	return nil
+}
+
+func (c *Client) deleteRecords(res chan<- message.SyncMessage) {
+	predicates := make([]message.Predicate, 0, len(c.config.DeleteRecords))
+	for _, deleteID := range c.config.DeleteRecords {
+		deleteRecord := array.NewRecordBuilder(memory.DefaultAllocator, (&schema.Table{
+			Name: "test_some_table",
+			Columns: schema.ColumnList{
+				schema.Column{Name: "resource_id", Type: arrow.PrimitiveTypes.Int64},
+			},
+		}).ToArrowSchema())
+		deleteRecord.Field(0).(*array.Int64Builder).Append(deleteID)
+		deleteValue := deleteRecord.NewRecordBatch()
+		predicates = append(predicates, message.Predicate{
+			Operator: "eq",
+			Column:   "resource_id",
+			Record:   deleteValue,
+		})
+	}
+	res <- &message.SyncDeleteRecord{
+		DeleteRecord: message.DeleteRecord{
+			TableName: "test_some_table",
+			WhereClause: message.PredicateGroups{
+				{
+					GroupingType: "OR",
+					Predicates:   predicates,
+				},
+			},
+		},
+	}
 }
 
 func (c *Client) Tables(_ context.Context, options plugin.TableOptions) (schema.Tables, error) {
@@ -119,6 +165,7 @@ func Configure(_ context.Context, logger zerolog.Logger, spec []byte, opts plugi
 		config:  *config,
 		scheduler: scheduler.NewScheduler(
 			scheduler.WithLogger(logger),
+			scheduler.WithInvocationID(opts.InvocationID),
 		),
 		tables: getTables(*config),
 	}, nil
@@ -169,5 +216,18 @@ func (c *Client) OnSyncFinish(_ context.Context) error {
 	if c.usage != nil {
 		return c.usage.Close()
 	}
+	return nil
+}
+
+func TestConnection(ctx context.Context, _ zerolog.Logger, specBytes []byte) error {
+	var s client.Spec
+	if err := json.Unmarshal(specBytes, &s); err != nil {
+		return &plugin.TestConnError{
+			Code:    "INVALID_SPEC",
+			Message: fmt.Errorf("failed to unmarshal spec: %w", err),
+		}
+	}
+	s.SetDefaults()
+
 	return nil
 }

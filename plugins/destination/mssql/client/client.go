@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 
 	"github.com/cloudquery/plugin-sdk/v4/plugin"
 	"github.com/cloudquery/plugin-sdk/v4/writers/batchwriter"
@@ -25,7 +25,12 @@ type Client struct {
 var _ plugin.Client = (*Client)(nil)
 var _ batchwriter.Client = (*Client)(nil)
 
+var errInvalidSpec = errors.New("invalid spec")
+
 func (c *Client) Close(ctx context.Context) error {
+	if c.db == nil {
+		return nil
+	}
 	if err := c.writer.Close(ctx); err != nil {
 		_ = c.db.Close()
 		return err
@@ -33,20 +38,24 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.db.Close()
 }
 
-func New(_ context.Context, logger zerolog.Logger, specBytes []byte, _ plugin.NewClientOptions) (plugin.Client, error) {
+func New(_ context.Context, logger zerolog.Logger, specBytes []byte, opts plugin.NewClientOptions) (plugin.Client, error) {
+	if opts.NoConnection {
+		return &Client{logger: logger.With().Str("module", "dest-mssql").Logger()}, nil
+	}
+
 	var spec Spec
 	if err := json.Unmarshal(specBytes, &spec); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal spec: %w", err)
+		return nil, errors.Join(errInvalidSpec, err)
 	}
 	spec.SetDefaults()
 
 	if err := spec.Validate(); err != nil {
-		return nil, err
+		return nil, errors.Join(errInvalidSpec, err)
 	}
 
 	connector, err := spec.Connector()
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare connection %w", err)
+		return nil, errors.Join(errInvalidSpec, err)
 	}
 
 	c := &Client{

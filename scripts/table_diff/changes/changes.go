@@ -1,10 +1,11 @@
 package changes
 
 import (
+	stdcmp "cmp"
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
@@ -46,9 +47,9 @@ func (c column) incremental() bool {
 	return c.columnType&columnTypeIncremental != 0
 }
 
-func backtickStrings(strings ...string) []any {
-	backticked := make([]any, len(strings))
-	for i, s := range strings {
+func backtickStrings(strs ...string) []any {
+	backticked := make([]any, len(strs))
+	for i, s := range strs {
 		backticked[i] = "`" + s + "`"
 	}
 	return backticked
@@ -90,7 +91,7 @@ func parsePKChange(line string) (names []string) {
 			names = append(names, strings.Trim(part, "*"))
 		}
 	}
-	return
+	return names
 }
 
 func getColumnChanges(file *gitdiff.File, table string) (changes []change) {
@@ -212,16 +213,14 @@ func getColumnChanges(file *gitdiff.File, table string) (changes []change) {
 		})
 	}
 
-	sort.SliceStable(changes, func(i, j int) bool {
-		chI := changes[i]
-		chJ := changes[j]
+	slices.SortStableFunc(changes, func(a, b change) int {
 		switch {
-		case chI.Breaking && !chJ.Breaking:
-			return true
-		case !chI.Breaking && chJ.Breaking:
-			return false
+		case a.Breaking && !b.Breaking:
+			return -1
+		case !a.Breaking && b.Breaking:
+			return 1
 		default:
-			return chI.Text < chJ.Text
+			return stdcmp.Compare(a.Text, b.Text)
 		}
 	})
 
@@ -268,6 +267,7 @@ func getFileChanges(file *gitdiff.File) (changes []change, err error) {
 	return changes, nil
 }
 
+//nolint:revive
 func GetChanges(files []*gitdiff.File) (changes []change, err error) {
 	changes = make([]change, 0)
 	for _, file := range files {

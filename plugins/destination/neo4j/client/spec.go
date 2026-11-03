@@ -2,7 +2,7 @@ package client
 
 import (
 	_ "embed"
-	"fmt"
+	"errors"
 )
 
 const (
@@ -21,10 +21,10 @@ type Spec struct {
 	Password string `json:"password" jsonschema:"required,minLength=1"`
 
 	// Number of records to batch together before sending to the database.
-	BatchSize int `json:"batch_size" jsonschema:"minimum=1,default=1000"`
+	BatchSize int64 `json:"batch_size" jsonschema:"minimum=1,default=1000"`
 
 	// Number of bytes (as Arrow buffer size) to batch together before sending to the database.
-	BatchSizeBytes int `json:"batch_size_bytes" jsonschema:"minimum=1,default=4194304"`
+	BatchSizeBytes int64 `json:"batch_size_bytes" jsonschema:"minimum=1,default=4194304"`
 }
 
 //go:embed schema.json
@@ -41,7 +41,7 @@ func (s *Spec) SetDefaults() {
 
 func (s *Spec) Validate() error {
 	if s.ConnectionString == "" {
-		return fmt.Errorf("connection_string is required")
+		return errors.New("connection_string is required")
 	}
 	return nil
 }

@@ -40,9 +40,6 @@
     "plugins/destination/mongodb": {
       "component": "plugins-destination-mongodb"
     },
-    "plugins/destination/motherduck": {
-      "component": "plugins-destination-motherduck"
-    },
     "plugins/destination/mssql": {
       "component": "plugins-destination-mssql"
     },
@@ -71,15 +68,8 @@
       "component": "plugins-source-airtable",
       "release-type": "node"
     },
-    "plugins/source/bitbucket": {
-      "component": "plugins-source-bitbucket",
-      "release-type": "simple"
-    },
     "plugins/source/hackernews": {
       "component": "plugins-source-hackernews"
-    },
-    "plugins/source/k8s": {
-      "component": "plugins-source-k8s"
     },
     "plugins/source/square": {
       "component": "plugins-source-square",
@@ -88,12 +78,17 @@
     "plugins/source/test": {
       "component": "plugins-source-test"
     },
-    "plugins/source/typeform": {
-      "component": "plugins-source-typeform",
-      "extra-files": [
-        "plugin/plugin.py"
-      ],
-      "release-type": "python"
+    "plugins/source/xkcd": {
+      "component": "plugins-source-xkcd"
+    },
+    "plugins/transformer/basic": {
+      "component": "plugins-transformer-basic"
+    },
+    "plugins/transformer/jsonflattener": {
+      "component": "plugins-transformer-jsonflattener"
+    },
+    "plugins/transformer/test": {
+      "component": "plugins-transformer-test"
     },
     "scaffold": {
       "component": "scaffold"

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/cloudquery/plugin-sdk/v4/schema"
 	"github.com/cloudquery/plugin-sdk/v4/types"
 	"github.com/google/uuid"
@@ -76,7 +76,7 @@ func (*Client) createResultsArray(table *arrow.Schema) []any {
 	return results
 }
 
-func reverseTransform(table *arrow.Schema, values []any) (arrow.Record, error) {
+func reverseTransform(table *arrow.Schema, values []any) (arrow.RecordBatch, error) {
 	recordBuilder := array.NewRecordBuilder(memory.DefaultAllocator, table)
 	for i, val := range values {
 		switch fType := table.Field(i).Type.(type) {
@@ -213,17 +213,17 @@ func reverseTransform(table *arrow.Schema, values []any) (arrow.Record, error) {
 			if !v.Valid {
 				recordBuilder.Field(i).AppendNull()
 			} else {
-				if err := recordBuilder.Field(i).AppendValueFromString(val.(*sql.NullString).String); err != nil {
+				if err := appendFromString(recordBuilder.Field(i), val.(*sql.NullString).String); err != nil {
 					return nil, fmt.Errorf("failed to AppendValueFromString %s. field: %v. name: %s err: %w", *val.(*string), recordBuilder.Field(i).Type(), table.Fields()[i].Name, err)
 				}
 			}
 		}
 	}
-	rec := recordBuilder.NewRecord()
+	rec := recordBuilder.NewRecordBatch()
 	return rec, nil
 }
 
-func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.Record) error {
+func (c *Client) Read(ctx context.Context, table *schema.Table, res chan<- arrow.RecordBatch) error {
 	colNames := make([]string, len(table.Columns))
 	for i, col := range table.Columns {
 		colNames[i] = identifier(col.Name)
